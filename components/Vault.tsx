@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { api, fmtClock, fmtPenalty } from "@/lib/api";
-import { beep, errorBuzz } from "@/lib/audio";
+import { confirmBlip, errorBuzz, keyClick, keyErase } from "@/lib/audio";
 import type { Claim, SessionView } from "@/lib/types";
 import Typewriter from "./Typewriter";
+import SplitTitle from "./SplitTitle";
 
 interface Props {
   session: SessionView;
@@ -51,7 +52,7 @@ function ClaimForm({ onClaimed, onSessionLost }: Omit<Props, "session">) {
         partner2Adm: f.partner2Adm.trim(),
       });
       if (r.status === 200 && r.data?.claim) {
-        beep();
+        confirmBlip();
         onClaimed(r.data.claim, r.data.rank, r.data.banner);
       } else if (r.status === 401) {
         onSessionLost();
@@ -86,7 +87,11 @@ function ClaimForm({ onClaimed, onSessionLost }: Omit<Props, "session">) {
         autoComplete="off"
         spellCheck={false}
         aria-invalid={bad.includes(key)}
-        onChange={(e) => setF({ ...f, [key]: e.target.value })}
+        onChange={(e) => {
+          if (e.target.value.length > f[key].length) keyClick();
+          else if (e.target.value.length < f[key].length) keyErase();
+          setF({ ...f, [key]: e.target.value });
+        }}
       />
     </label>
   );
@@ -94,9 +99,12 @@ function ClaimForm({ onClaimed, onSessionLost }: Omit<Props, "session">) {
   return (
     <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="claim-title">
       <form className="dialog" onSubmit={submit} noValidate>
-        <h2 id="claim-title" className="head" style={{ fontSize: "1.7rem", lineHeight: 1.1 }}>
-          CLAIM YOUR VICTORY // 1ST PLACE OFFICIAL REGISTRATION
-        </h2>
+        <SplitTitle
+          as="h2"
+          id="claim-title"
+          className="head dialog-title"
+          text="CLAIM YOUR VICTORY // OFFICIAL REGISTRATION"
+        />
         <p className="muted-text">Input details for both team members to record your official standing:</p>
         <fieldset className="fieldset">
           <legend>PARTNER 1</legend>
@@ -129,7 +137,7 @@ function Certificate({ claim, rank, banner }: { claim: Claim; rank: number | nul
   });
   return (
     <div className="cert">
-      <p className="org">SENTINEL OVERRIDE // OFFICIAL CERTIFICATE</p>
+      <SplitTitle as="p" className="org" text="SENTINEL OVERRIDE // OFFICIAL CERTIFICATE" />
       <p className="head rank">OFFICIAL RECORDED RANK #{rank ?? "—"}</p>
       <p className="muted-text">PROVISIONAL RANK AT TIME OF CLAIM — FINAL STANDINGS CONFIRMED BY ORGANISERS.</p>
       <dl>
@@ -152,9 +160,9 @@ function Certificate({ claim, rank, banner }: { claim: Claim; rank: number | nul
           {claim.partner2Name} ({claim.partner2Adm})
         </dd>
       </dl>
-      <p className="banner" role="status">
-        {banner}
-      </p>
+      <div role="status">
+        <SplitTitle as="p" className="banner" text={banner} />
+      </div>
     </div>
   );
 }
@@ -168,9 +176,7 @@ export default function Vault({ session, onClaimed, onSessionLost }: Props) {
       {typed ? (
         <div className="vault-lines">
           {lines.map((l) => (
-            <p key={l} className="typed head">
-              {l}
-            </p>
+            <SplitTitle key={l} as="p" className="typed head" text={l} />
           ))}
         </div>
       ) : (

@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { api, fmtClock, fmtPenalty } from "@/lib/api";
-import { beep, errorBuzz, unlockAudio } from "@/lib/audio";
+import { beep, errorBuzz, readyPing, unlockAudio } from "@/lib/audio";
 import type { HintGroupView, SessionView, SolvedTimes, VaultContent } from "@/lib/types";
 import CodeInput, { SLOTS } from "./CodeInput";
+import Briefing from "./Briefing";
 import HintPanel from "./HintPanel";
 
 // ---- a 1 Hz wall clock shared via an external store (display only)
@@ -27,6 +28,22 @@ interface Props {
 
 export default function Console({ session, offsetMs, onFlash, onSolved, onHints, onSessionLost }: Props) {
   const [values, setValues] = useState<string[]>(() => Array(SLOTS).fill(""));
+  const briefKey = `scesa-override:briefed:${session.startTime}`;
+  const [showBrief, setShowBrief] = useState(() => {
+    try {
+      return window.localStorage.getItem(briefKey) !== "1";
+    } catch {
+      return true;
+    }
+  });
+  const closeBrief = () => {
+    setShowBrief(false);
+    try {
+      window.localStorage.setItem(briefKey, "1");
+    } catch {
+      /* storage unavailable: the briefing may show again on reload */
+    }
+  };
   const [denied, setDenied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [netError, setNetError] = useState<string | null>(null);
@@ -44,6 +61,7 @@ export default function Console({ session, offsetMs, onFlash, onSolved, onHints,
       if (left === 0 && lockTimer.current) {
         clearInterval(lockTimer.current);
         lockTimer.current = null;
+        readyPing();
       }
     }, 100);
   };
@@ -179,7 +197,25 @@ export default function Console({ session, offsetMs, onFlash, onSolved, onHints,
             : "EXECUTE OVERRIDE"}
       </button>
 
-      <HintPanel hints={session.hints} locked={busy} onUpdate={onHints} onSessionLost={onSessionLost} />
+      <button
+        type="button"
+        className="btn brief-btn"
+        onClick={() => {
+          beep();
+          setShowBrief(true);
+        }}
+      >
+        [ MISSION BRIEFING ]
+      </button>
+
+      <HintPanel
+        hints={session.hints}
+        locked={busy}
+        nowMs={nowSec === 0 ? 0 : nowSec * 1000 + offsetMs}
+        onUpdate={onHints}
+        onSessionLost={onSessionLost}
+      />
+      {showBrief && <Briefing resumeCode={session.resumeCode} onClose={closeBrief} />}
     </section>
   );
 }

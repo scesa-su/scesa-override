@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import SplitTitle from "./SplitTitle";
+import { keyClick, keyErase } from "@/lib/audio";
 
 interface Props {
   busy: boolean;
@@ -22,9 +24,12 @@ export default function Standby({ busy, error, needResume, onStart, onCallsignCh
   return (
     <section className="screen" aria-labelledby="portal-title">
       <p className="org">STRATHMORE COMPUTING &amp; ENGINEERING STUDENTS ASSOCIATION</p>
-      <h1 id="portal-title" className="head title">
-        SENTINEL EMERGENCY OVERRIDE PORTAL // AIR-GAP RECOVERY
-      </h1>
+      <SplitTitle
+        as="h1"
+        id="portal-title"
+        className="head title"
+        text="SENTINEL EMERGENCY OVERRIDE PORTAL // AIR-GAP RECOVERY"
+      />
       <p className="status">
         SYSTEM STATUS: <span className="off">OFFLINE</span> — CORE INFRASTRUCTURE LOCKED AT 10:28 AM
       </p>
@@ -45,7 +50,10 @@ export default function Standby({ busy, error, needResume, onStart, onCallsignCh
               name="callsign"
               value={callsign}
               onChange={(e) => {
-                setCallsign(e.target.value.slice(0, 32));
+                const v = e.target.value.slice(0, 32);
+                if (v.length > callsign.length) keyClick();
+                else if (v.length < callsign.length) keyErase();
+                setCallsign(v);
                 if (needResume || resumeCode || error) {
                   setResumeCode("");
                   onCallsignChange();
@@ -71,7 +79,12 @@ export default function Standby({ busy, error, needResume, onStart, onCallsignCh
               <input
                 name="resumeCode"
                 value={resumeCode}
-                onChange={(e) => setResumeCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, "").slice(0, 6);
+                  if (v.length > resumeCode.length) keyClick();
+                  else if (v.length < resumeCode.length) keyErase();
+                  setResumeCode(v);
+                }}
                 inputMode="numeric"
                 autoComplete="off"
                 maxLength={6}
