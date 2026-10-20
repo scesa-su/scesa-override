@@ -15,7 +15,7 @@ interface Props {
 }
 
 interface Pending {
-  artifact: number;
+  group: string;
   index: number;
   penaltySeconds: number;
 }
@@ -26,10 +26,10 @@ export default function HintPanel({ hints, locked, nowMs, onUpdate, onSessionLos
   const [error, setError] = useState<string | null>(null);
 
   // Ping once when a timed hint group (e.g. the roadmap) unlocks while the console is open.
-  const lockedGroups = useRef<Set<number> | null>(null);
+  const lockedGroups = useRef<Set<string> | null>(null);
   useEffect(() => {
     if (!nowMs) return;
-    const nowLocked = new Set(hints.filter((g) => g.unlocksAt && g.unlocksAt > nowMs).map((g) => g.artifact));
+    const nowLocked = new Set(hints.filter((g) => g.unlocksAt && g.unlocksAt > nowMs).map((g) => g.id));
     const prev = lockedGroups.current;
     if (prev && [...prev].some((a) => !nowLocked.has(a))) readyPing();
     lockedGroups.current = nowLocked;
@@ -40,7 +40,7 @@ export default function HintPanel({ hints, locked, nowMs, onUpdate, onSessionLos
     setBusy(true);
     setError(null);
     try {
-      const r = await api.hint(pending.artifact, pending.index);
+      const r = await api.hint(pending.group, pending.index);
       if (r.status === 200) {
         hintReveal();
         onUpdate(r.data.hints, r.data.penaltySeconds);
@@ -72,14 +72,12 @@ export default function HintPanel({ hints, locked, nowMs, onUpdate, onSessionLos
             {error}
           </p>
         )}
-        {[...hints]
-          // Roadmap first, then alphabetical by title, so the panel does not reveal code order.
-          .sort((a, b) => (a.artifact === 0 ? -1 : b.artifact === 0 ? 1 : a.title.localeCompare(b.title)))
-          .map((g) => {
+        {/* The server already orders groups (roadmap first, then alphabetical) and hides slot numbers. */}
+        {hints.map((g) => {
           const next = g.revealed.length;
           const waitMs = g.unlocksAt && nowMs ? Math.max(0, g.unlocksAt - nowMs) : g.unlocksAt ? 1 : 0;
           return (
-            <div className="hint-group" key={g.artifact}>
+            <div className="hint-group" key={g.id}>
               <h3>
                 {g.title}
                 {g.penalties.every((p) => p === 0) ? " — FREE" : ""}
@@ -109,7 +107,7 @@ export default function HintPanel({ hints, locked, nowMs, onUpdate, onSessionLos
                         disabled={!isNext || locked || waitMs > 0}
                         onClick={() => {
                           beep();
-                          setPending({ artifact: g.artifact, index, penaltySeconds: g.penalties[index] });
+                          setPending({ group: g.id, index, penaltySeconds: g.penalties[index] });
                         }}
                       >
                         {isNext && waitMs === 0 ? "[ REVEAL ]" : "[ LOCKED ]"} HINT {index + 1}/{g.total} ·{" "}

@@ -8,8 +8,8 @@ export const dynamic = "force-dynamic";
 export const POST = handle(async (req: NextRequest) => {
   const id = sessionIdFrom(req);
   if (!id || !(await loadSession(id))) return noSession();
-  const body = (await readJson(req)) as { artifact?: unknown; index?: unknown } | null;
-  const { text, session } = await revealHint(id, body?.artifact, body?.index);
+  const body = (await readJson(req)) as { group?: unknown; index?: unknown } | null;
+  const { text, session } = await revealHint(id, body?.group, body?.index);
   const view = await toView(session);
   return json({ text, penaltySeconds: view.penaltySeconds, hints: view.hints });
 });

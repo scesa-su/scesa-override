@@ -2,7 +2,7 @@ import "server-only";
 import { createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import type { Claim, HintGroupView, SessionView, SolvedTimes } from "@/lib/types";
 import { checkCode } from "./codes";
-import { bannerForRank, getCatalog, getGroup, vaultLines } from "./hints";
+import { bannerForRank, getGroupById, groupId, orderedCatalog, vaultLines } from "./hints";
 import { getStore } from "./store";
 
 export const COOKIE_NAME = "sso_sid";
@@ -151,10 +151,10 @@ export async function loadSession(id: string | null): Promise<Session | null> {
 }
 
 function hintViews(s: Session): HintGroupView[] {
-  return getCatalog().map((grp) => {
+  return orderedCatalog().map((grp) => {
     const n = Math.min(s.revealed[String(grp.artifact)] ?? 0, grp.hints.length);
     return {
-      artifact: grp.artifact,
+      id: groupId(grp),
       title: grp.title,
       penalties: [...grp.penalties],
       unlocksAt: grp.unlockAfterSeconds ? s.startTime + grp.unlockAfterSeconds * 1000 : null,
@@ -265,23 +265,18 @@ export async function startSession(
 
 export async function revealHint(
   id: string,
-  artifactInput: unknown,
+  groupInput: unknown,
   indexInput: unknown,
 ): Promise<{ text: string; session: Session }> {
-  if (
-    typeof artifactInput !== "number" ||
-    typeof indexInput !== "number" ||
-    !Number.isInteger(artifactInput) ||
-    !Number.isInteger(indexInput)
-  ) {
+  if (typeof groupInput !== "string" || typeof indexInput !== "number" || !Number.isInteger(indexInput)) {
     throw new HttpError(400, { error: "invalid_hint" });
   }
-  const artifact = artifactInput;
   const index = indexInput;
-  const grp = getGroup(artifact);
+  const grp = getGroupById(groupInput);
   if (!grp || index < 0 || index >= grp.hints.length) {
     throw new HttpError(400, { error: "invalid_hint" });
   }
+  const artifact = grp.artifact;
   return withLock(id, async () => {
     const s = await loadSession(id);
     if (!s) throw new HttpError(401, { error: "no_session" });

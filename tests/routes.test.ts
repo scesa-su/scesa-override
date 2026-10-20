@@ -8,6 +8,8 @@ import { POST as verifyPOST } from "@/app/api/verify/route";
 import { POST as claimPOST } from "@/app/api/claim/route";
 import { GET as leaderboardGET } from "@/app/api/leaderboard/route";
 import { GET as healthGET } from "@/app/api/health/route";
+import { getGroup, groupId } from "@/lib/server/hints";
+import type { HintGroupView } from "@/lib/types";
 
 const T0 = new Date("2026-10-24T08:00:00.000Z").getTime();
 
@@ -24,8 +26,14 @@ async function start(callsign = "Alpha Team", opts: { resumeCode?: unknown; cook
 
 const verify = (cookie: string, parts: unknown = CORRECT) =>
   verifyPOST(req("/api/verify", { body: { parts }, cookie }));
+/** Tests address groups by internal artifact number; the API only sees the opaque id. */
+const gid = (artifact: number) => {
+  const grp = getGroup(artifact);
+  return grp ? groupId(grp) : `missing-${artifact}`;
+};
 const hint = (cookie: string, artifact: number, index: number) =>
-  hintPOST(req("/api/hint", { body: { artifact, index }, cookie }));
+  hintPOST(req("/api/hint", { body: { group: gid(artifact), index }, cookie }));
+const viewGroup = (hints: HintGroupView[], artifact: number) => hints.find((g) => g.id === gid(artifact))!;
 const CLAIM = {
   partner1Name: "Jane Wanjiru",
   partner1Adm: "123456",
@@ -76,7 +84,7 @@ describe("session start / resume", () => {
     expect(b.res.status).toBe(200);
     expect(b.data.startTime).toBe(T0);
     expect(b.data.penaltySeconds).toBe(90);
-    expect(b.data.hints[1].revealed).toHaveLength(1);
+    expect(viewGroup(b.data.hints, 1).revealed).toHaveLength(1);
     const view = await (await sessionGET(req("/api/session", { cookie: b.cookie }))).json();
     expect(view.startTime).toBe(T0);
   });
@@ -264,8 +272,8 @@ describe("hints", () => {
     expect((await hint(cookie, 1, 0)).status).toBe(200);
     const view = await (await sessionGET(req("/api/session", { cookie }))).json();
     expect(view.penaltySeconds).toBe(30 + 60 + 90 + 90);
-    expect(view.hints[5].revealed).toHaveLength(3);
-    expect(view.hints[2].revealed).toHaveLength(0);
+    expect(viewGroup(view.hints, 5).revealed).toHaveLength(3);
+    expect(viewGroup(view.hints, 2).revealed).toHaveLength(0);
   });
 
   it("rejects unknown artifacts or indexes", async () => {
@@ -273,24 +281,24 @@ describe("hints", () => {
     expect((await hint(cookie, 7, 0)).status).toBe(400);
     expect((await hint(cookie, 0, 1)).status).toBe(400);
     expect((await hint(cookie, -1, 0)).status).toBe(400);
-    const bad = await hintPOST(req("/api/hint", { body: { artifact: "x", index: 0 }, cookie }));
+    const bad = await hintPOST(req("/api/hint", { body: { group: "x", index: 0 }, cookie }));
     expect(bad.status).toBe(400);
   });
 
-  it("rejects non-number artifact/index instead of coercing", async () => {
+  it("rejects malformed group/index instead of coercing", async () => {
     const { cookie } = await start();
-    for (const [artifact, index] of [
+    for (const [group, index] of [
       [null, null],
       ["", ""],
       [true, false],
-      ["1", 0],
-      [1, "0"],
-      [0, null],
-      [[1], 0],
-      [1.5, 0],
+      [1, 0],
+      [gid(1), "0"],
+      [gid(1), null],
+      [[gid(1)], 0],
+      [gid(1), 1.5],
     ]) {
-      const res = await hintPOST(req("/api/hint", { body: { artifact, index }, cookie }));
-      expect(res.status, JSON.stringify([artifact, index])).toBe(400);
+      const res = await hintPOST(req("/api/hint", { body: { group, index }, cookie }));
+      expect(res.status, JSON.stringify([group, index])).toBe(400);
     }
     const view = await (await sessionGET(req("/api/session", { cookie }))).json();
     expect(view.penaltySeconds).toBe(0);
@@ -452,9 +460,9 @@ describe("timed and escalating hints", () => {
 
   it("exposes per-hint penalties and the unlock time in the view", async () => {
     const { data } = await start();
-    const roadmap = data.hints.find((g: { artifact: number }) => g.artifact === 0);
+    const roadmap = viewGroup(data.hints, 0);
     expect(roadmap.unlocksAt).toBe(T0 + 600_000);
-    const vip = data.hints.find((g: { artifact: number }) => g.artifact === 1);
+    const vip = viewGroup(data.hints, 1);
     expect(vip.penalties).toEqual([90, 210]);
     expect(vip.unlocksAt).toBeNull();
   });
@@ -464,5 +472,17 @@ describe("timed and escalating hints", () => {
     await hint(cookie, 1, 0);
     const second = await (await hint(cookie, 1, 1)).json();
     expect(second.penaltySeconds).toBe(90 + 210);
+  });
+});
+
+describe("hint group privacy", () => {
+  it("sends opaque ids in alphabetical order with no slot numbers", async () => {
+    const { data } = await start();
+    const text = JSON.stringify(data.hints);
+    expect(text).not.toContain('"artifact"');
+    for (const g of data.hints) expect(g.id).toMatch(/^[0-9a-f]{10}$/);
+    const titles = data.hints.map((g: { title: string }) => g.title);
+    expect(titles[0]).toBe("Demo Roadmap");
+    expect(titles.slice(1)).toEqual([...titles.slice(1)].sort((a: string, b: string) => a.localeCompare(b)));
   });
 });

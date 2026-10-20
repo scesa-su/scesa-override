@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { getContent, type HintGroup } from "./content";
 
 export type { HintGroup };
@@ -10,6 +11,25 @@ export function getCatalog(): readonly HintGroup[] {
 
 export function getGroup(artifact: number): HintGroup | undefined {
   return getCatalog().find((g) => g.artifact === artifact);
+}
+
+/**
+ * Opaque public id for a hint group. Derived from the title so it is stable, but carries
+ * no slot number: the client never learns which artifact holds which code part.
+ */
+export function groupId(grp: HintGroup): string {
+  return createHash("sha256").update(`hint-group:${grp.title}`).digest("hex").slice(0, 10);
+}
+
+export function getGroupById(id: string): HintGroup | undefined {
+  return getCatalog().find((g) => groupId(g) === id);
+}
+
+/** Display order sent to clients: the roadmap (artifact 0) first, then alphabetical by title. */
+export function orderedCatalog(): readonly HintGroup[] {
+  return [...getCatalog()].sort((a, b) =>
+    a.artifact === 0 ? -1 : b.artifact === 0 ? 1 : a.title.localeCompare(b.title),
+  );
 }
 
 /** Copy shown only after a successful override (kept server-side so it is not spoiled). */

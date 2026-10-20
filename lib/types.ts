@@ -1,7 +1,8 @@
 // Shared client/server shapes. Contains NO answers or hint text.
 
 export interface HintGroupView {
-  artifact: number;
+  /** Opaque group id (no slot number), used to request hints. */
+  id: string;
   title: string;
   /** Penalty in seconds for each hint, in order. */
   penalties: number[];

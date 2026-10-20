@@ -28,9 +28,9 @@ export const api = {
   session: () => call<SessionView>("/api/session"),
   start: (callsign: string, resumeCode?: string) =>
     post<SessionView>("/api/session/start", { callsign, resumeCode }),
-  hint: (artifact: number, index: number) =>
+  hint: (group: string, index: number) =>
     post<{ text: string; penaltySeconds: number; hints: HintGroupView[]; error?: string }>("/api/hint", {
-      artifact,
+      group,
       index,
     }),
   verify: (parts: string[]) =>
