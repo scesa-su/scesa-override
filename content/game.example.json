@@ -1,0 +1,56 @@
+{
+  "codes": ["123", "456", "789", "246", "135", "864"],
+  "hints": [
+    {
+      "artifact": 0,
+      "title": "Demo Roadmap",
+      "penaltySeconds": 0,
+      "hints": ["Demo puzzle: the code is 123-456-789-246-135-864. Real event content is loaded from the GAME_CONTENT environment variable."]
+    },
+    {
+      "artifact": 1,
+      "title": "Demo Artifact Alpha",
+      "penaltySeconds": 150,
+      "hints": ["Alpha nudge.", "Alpha direct: the first part is 123."]
+    },
+    {
+      "artifact": 2,
+      "title": "Demo Artifact Bravo",
+      "penaltySeconds": 120,
+      "hints": ["Bravo nudge.", "Bravo direct: the second part is 456."]
+    },
+    {
+      "artifact": 3,
+      "title": "Demo Artifact Charlie",
+      "penaltySeconds": 90,
+      "hints": ["Charlie nudge.", "Charlie direct: the third part is 789."]
+    },
+    {
+      "artifact": 4,
+      "title": "Demo Artifact Delta",
+      "penaltySeconds": 90,
+      "hints": ["Delta nudge.", "Delta direct: the fourth part is 246."]
+    },
+    {
+      "artifact": 5,
+      "title": "Demo Artifact Echo",
+      "penaltySeconds": 60,
+      "hints": ["Echo nudge.", "Echo narrower nudge.", "Echo direct: the fifth part is 135."]
+    },
+    {
+      "artifact": 6,
+      "title": "Demo Artifact Foxtrot",
+      "penaltySeconds": 45,
+      "hints": ["Foxtrot nudge.", "Foxtrot narrower nudge.", "Foxtrot direct: the sixth part is 864."]
+    }
+  ],
+  "vault": {
+    "lines": [
+      "SENTINEL OVERRIDE SUCCESSFUL // AIR-GAP DECRYPTED",
+      "DEMO MODE: CULPRIT FILE REDACTED",
+      "DEMO ARCHIVE RESTORED"
+    ],
+    "winnerBanner": "DEMO: You finished first! Present this screen to an organiser.",
+    "rankBanner": "DEMO: Present this screen to an organiser — OFFICIAL RANK #{rank}."
+  }
+}
