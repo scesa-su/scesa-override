@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import { alarm, beep, errorBuzz, unlockAudio, victoryChime } from "@/lib/audio";
+import { alarm, beep, confirmBlip, errorBuzz, unlockAudio, victoryChime } from "@/lib/audio";
 import type { SessionView } from "@/lib/types";
 import AntiInspect from "./AntiInspect";
 import BootSequence from "./BootSequence";
@@ -74,6 +74,7 @@ export default function Terminal() {
       const r = await api.start(callsign, resumeCode);
       if (r.status === 200 && r.data) {
         setNeedResume(false);
+        confirmBlip();
         adopt(r.data);
         if (r.data.solved) {
           setPhase("vault");

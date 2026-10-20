@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { keyClick } from "@/lib/audio";
+import { keyClick, keyErase } from "@/lib/audio";
 
 export const SLOTS = 6;
 
@@ -42,6 +42,7 @@ export default function CodeInput({ values, onChange, onSubmit, error, disabled 
   const handleChange = (i: number, raw: string) => {
     const digits = raw.replace(/\D/g, "");
     if (digits.length > values[i].length) keyClick();
+    else if (digits.length < values[i].length) keyErase();
     if (digits.length <= 3) {
       const next = [...values];
       next[i] = digits;
