@@ -7,6 +7,7 @@ import { POST as hintPOST } from "@/app/api/hint/route";
 import { POST as verifyPOST } from "@/app/api/verify/route";
 import { POST as claimPOST } from "@/app/api/claim/route";
 import { GET as leaderboardGET } from "@/app/api/leaderboard/route";
+import { GET as healthGET } from "@/app/api/health/route";
 
 const T0 = new Date("2026-10-24T08:00:00.000Z").getTime();
 
@@ -420,5 +421,18 @@ describe("claim + leaderboard", () => {
     expect(html).toContain('http-equiv="refresh" content="10"');
     expect(html).toContain("&lt;script&gt;x&lt;/script&gt;");
     expect(html).not.toContain("<script>x</script>");
+  });
+});
+
+describe("health", () => {
+  it("reports each check without leaking values", async () => {
+    const res = await healthGET();
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.checks).toMatchObject({ sessionSecret: true, leaderboardSecret: true, content: true, store: true });
+    const text = JSON.stringify(body);
+    expect(text).not.toContain("test-secret");
+    expect(text).not.toContain("test-board-secret");
   });
 });
