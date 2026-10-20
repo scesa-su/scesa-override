@@ -113,10 +113,29 @@ class MemoryKV implements KV {
 
 const g = globalThis as unknown as { __scesaKV?: KV; __scesaKVWarned?: boolean };
 
-function redisEnv(): { url: string; token: string } | null {
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-  return url && token ? { url, token } : null;
+const REST_PAIRS = [
+  ["KV_REST_API_URL", "KV_REST_API_TOKEN"],
+  ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
+] as const;
+
+/**
+ * Upstash REST credentials. Accepts the standard names and the custom-prefixed
+ * names Vercel creates when a store is connected with an env prefix
+ * (e.g. `storage_KV_REST_API_URL`). The read-only token is never used.
+ */
+export function redisEnv(env: Record<string, string | undefined> = process.env): { url: string; token: string } | null {
+  for (const [urlName, tokenName] of REST_PAIRS) {
+    if (env[urlName] && env[tokenName]) return { url: env[urlName]!, token: env[tokenName]! };
+  }
+  for (const [urlName, tokenName] of REST_PAIRS) {
+    for (const key of Object.keys(env)) {
+      if (!key.endsWith(`_${urlName}`) || !env[key]) continue;
+      const prefix = key.slice(0, -urlName.length);
+      const token = env[`${prefix}${tokenName}`];
+      if (token) return { url: env[key]!, token };
+    }
+  }
+  return null;
 }
 
 export function getStore(): KV {

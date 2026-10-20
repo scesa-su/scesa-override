@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import "./helpers";
 import { checkCode, parseParts } from "@/lib/server/codes";
 import { bannerFor, getCatalog } from "@/lib/server/hints";
-import { getStore } from "@/lib/server/store";
+import { getStore, redisEnv } from "@/lib/server/store";
 import { getContent, resetContentCache } from "@/lib/server/content";
 import {
   computeTimes,
@@ -190,5 +190,21 @@ describe("game content loader", () => {
     vi.stubEnv("GAME_CONTENT", b64({ ...sample, vault: { ...sample.vault, rankBanner: "no placeholder" } }));
     resetContentCache();
     expect(() => getContent()).toThrow(/rankBanner/);
+  });
+});
+
+describe("redis env detection", () => {
+  it("accepts standard and custom-prefixed Upstash REST names", () => {
+    expect(redisEnv({ KV_REST_API_URL: "u", KV_REST_API_TOKEN: "t" })).toEqual({ url: "u", token: "t" });
+    expect(
+      redisEnv({
+        storage_KV_REST_API_URL: "pu",
+        storage_KV_REST_API_TOKEN: "pt",
+        storage_KV_REST_API_READ_ONLY_TOKEN: "ro",
+        storage_REDIS_URL: "redis://x",
+      }),
+    ).toEqual({ url: "pu", token: "pt" });
+    expect(redisEnv({ storage_REDIS_URL: "redis://x" })).toBeNull();
+    expect(redisEnv({ storage_KV_REST_API_URL: "pu" })).toBeNull();
   });
 });

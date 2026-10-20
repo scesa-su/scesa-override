@@ -80,7 +80,7 @@ Copy [`.env.example`](.env.example) to `.env.local` for local overrides.
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | yes* | Use these instead if you connect an Upstash database directly. |
 | `ALLOW_MEMORY_STORE` | no | Set to `1` to allow a non-persistent in-memory store in production (not recommended). |
 
-\* Set one of the two Redis pairs. Without Redis, production returns errors on purpose, so that scores aren't silently lost.
+\* Set one of the two Redis pairs. Custom prefixes added by Vercel (for example `storage_KV_REST_API_URL`) are detected automatically. Without Redis, production returns errors on purpose, so that scores aren't silently lost. Check the configuration at `/api/health`.
 
 Generate a secret with:
 

@@ -1,6 +1,6 @@
 import { json } from "@/lib/server/http";
 import { getContent } from "@/lib/server/content";
-import { getStore } from "@/lib/server/store";
+import { getStore, redisEnv } from "@/lib/server/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,12 +16,9 @@ export async function GET() {
     leaderboardSecret: Boolean(env.LEADERBOARD_SECRET),
     content: false,
     contentSource: env.GAME_CONTENT ? "GAME_CONTENT" : env.GAME_CONTENT_FILE ? "GAME_CONTENT_FILE" : "demo",
-    redisConfigured: Boolean(
-      (env.KV_REST_API_URL && env.KV_REST_API_TOKEN) ||
-        (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN),
-    ),
+    redisConfigured: redisEnv() !== null,
     // A plain REDIS_URL (TCP) is not usable here; the app needs the Upstash REST pair.
-    redisUrlOnly: Boolean(env.REDIS_URL) && !env.KV_REST_API_URL && !env.UPSTASH_REDIS_REST_URL,
+    redisUrlOnly: redisEnv() === null && Object.keys(env).some((k) => k.endsWith("REDIS_URL")),
     store: false,
   };
 
