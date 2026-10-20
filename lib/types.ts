@@ -3,7 +3,10 @@
 export interface HintGroupView {
   artifact: number;
   title: string;
-  penaltySeconds: number;
+  /** Penalty in seconds for each hint, in order. */
+  penalties: number[];
+  /** Epoch ms when this group unlocks, or null when always available. */
+  unlocksAt: number | null;
   total: number;
   /** Texts of hints already revealed, in order. */
   revealed: string[];

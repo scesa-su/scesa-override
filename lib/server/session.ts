@@ -156,7 +156,8 @@ function hintViews(s: Session): HintGroupView[] {
     return {
       artifact: grp.artifact,
       title: grp.title,
-      penaltySeconds: grp.penaltySeconds,
+      penalties: [...grp.penalties],
+      unlocksAt: grp.unlockAfterSeconds ? s.startTime + grp.unlockAfterSeconds * 1000 : null,
       total: grp.hints.length,
       revealed: grp.hints.slice(0, n),
     };
@@ -288,8 +289,11 @@ export async function revealHint(
     if (index < n) return { text: grp.hints[index], session: s }; // repeat: no charge
     if (s.solved) throw new HttpError(409, { error: "already_solved" });
     if (index > n) throw new HttpError(409, { error: "out_of_order", next: n });
+    const unlocksAt = s.startTime + (grp.unlockAfterSeconds ?? 0) * 1000;
+    const now = Date.now();
+    if (now < unlocksAt) throw new HttpError(409, { error: "not_yet_available", unlocksInMs: unlocksAt - now });
     s.revealed[String(artifact)] = n + 1;
-    s.penaltySeconds += grp.penaltySeconds;
+    s.penaltySeconds += grp.penalties[index];
     await save(s);
     return { text: grp.hints[index], session: s };
   });

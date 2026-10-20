@@ -75,7 +75,7 @@ describe("session start / resume", () => {
     const b = await start("  alpha   TEAM ", { resumeCode: a.data.resumeCode });
     expect(b.res.status).toBe(200);
     expect(b.data.startTime).toBe(T0);
-    expect(b.data.penaltySeconds).toBe(150);
+    expect(b.data.penaltySeconds).toBe(90);
     expect(b.data.hints[1].revealed).toHaveLength(1);
     const view = await (await sessionGET(req("/api/session", { cookie: b.cookie }))).json();
     expect(view.startTime).toBe(T0);
@@ -207,12 +207,12 @@ describe("verify", () => {
   it("freezes server-computed times on the first success", async () => {
     const { cookie } = await start();
     await hint(cookie, 0, 0); // free
-    await hint(cookie, 6, 0); // 45 s
+    await hint(cookie, 6, 0); // 30 s
     at(754_900);
     const res = await verify(cookie, CORRECT);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toMatchObject({ ok: true, rawTime: 754, penaltyTime: 45, totalScoreTime: 799 });
+    expect(body).toMatchObject({ ok: true, rawTime: 754, penaltyTime: 30, totalScoreTime: 784 });
     expect(body.vault.lines[0]).toBe("SENTINEL OVERRIDE SUCCESSFUL // AIR-GAP DECRYPTED");
     expect(body.vault.banner).toBe("COMPLETE THE CLAIM FORM TO RECORD YOUR OFFICIAL RANK.");
     const unclaimed = await (await sessionGET(req("/api/session", { cookie }))).json();
@@ -221,9 +221,9 @@ describe("verify", () => {
 
     at(2_000_000);
     const again = await (await verify(cookie, WRONG)).json();
-    expect(again).toMatchObject({ ok: true, rawTime: 754, penaltyTime: 45, totalScoreTime: 799 });
+    expect(again).toMatchObject({ ok: true, rawTime: 754, penaltyTime: 30, totalScoreTime: 784 });
     const view = await (await sessionGET(req("/api/session", { cookie }))).json();
-    expect(view.solved.totalScoreTime).toBe(799);
+    expect(view.solved.totalScoreTime).toBe(784);
   });
 
   it("accepts a dashed code string", async () => {
@@ -252,18 +252,18 @@ describe("hints", () => {
     const h1 = await hint(cookie, 5, 0);
     expect(h1.status).toBe(200);
     const b1 = await h1.json();
-    expect(b1.penaltySeconds).toBe(60);
+    expect(b1.penaltySeconds).toBe(30);
     expect(b1.text).toBe("Echo nudge.");
 
     const repeat = await (await hint(cookie, 5, 0)).json();
     expect(repeat.text).toBe(b1.text);
-    expect(repeat.penaltySeconds).toBe(60);
+    expect(repeat.penaltySeconds).toBe(30);
 
     expect((await hint(cookie, 5, 1)).status).toBe(200);
     expect((await hint(cookie, 5, 2)).status).toBe(200);
     expect((await hint(cookie, 1, 0)).status).toBe(200);
     const view = await (await sessionGET(req("/api/session", { cookie }))).json();
-    expect(view.penaltySeconds).toBe(60 * 3 + 150);
+    expect(view.penaltySeconds).toBe(30 + 60 + 90 + 90);
     expect(view.hints[5].revealed).toHaveLength(3);
     expect(view.hints[2].revealed).toHaveLength(0);
   });
@@ -303,7 +303,7 @@ describe("hints", () => {
     expect((await hint(cookie, 2, 1)).status).toBe(409);
     // Already-revealed text is still readable without extra charge.
     const again = await (await hint(cookie, 2, 0)).json();
-    expect(again.penaltySeconds).toBe(120);
+    expect(again.penaltySeconds).toBe(60);
   });
 });
 
@@ -348,9 +348,9 @@ describe("claim + leaderboard", () => {
     const a = await start("Alpha");
     const b = await start("Bravo");
     const c = await start("Charlie");
-    await hint(a.cookie, 1, 0); // +150
-    at(200_000);
-    await verify(a.cookie, CORRECT); // 200 + 150 = 350
+    await hint(a.cookie, 1, 0); // +90
+    at(260_000);
+    await verify(a.cookie, CORRECT); // 260 + 90 = 350
     at(300_000);
     await verify(b.cookie, CORRECT); // 300
     await claim(b.cookie);
@@ -386,11 +386,11 @@ describe("claim + leaderboard", () => {
   });
 
   it("breaks equal adjusted-time ties by completedAt", async () => {
-    const fast = await start("Hinted"); // +45 penalty, finishes first in wall time
+    const fast = await start("Hinted"); // +30 penalty, finishes first in wall time
     const slow = await start("Clean"); // no penalty, finishes later
     await hint(fast.cookie, 6, 0);
-    at(100_000);
-    await verify(fast.cookie, CORRECT); // 100 + 45 = 145
+    at(115_000);
+    await verify(fast.cookie, CORRECT); // 115 + 30 = 145
     at(145_000);
     await verify(slow.cookie, CORRECT); // 145 + 0 = 145
     // Claim in the opposite order so insertion order cannot decide the rank.
@@ -434,5 +434,35 @@ describe("health", () => {
     const text = JSON.stringify(body);
     expect(text).not.toContain("test-secret");
     expect(text).not.toContain("test-board-secret");
+  });
+});
+
+describe("timed and escalating hints", () => {
+  it("keeps the roadmap encrypted for 10 minutes, then reveals it free", async () => {
+    const { cookie } = await start();
+    at(599_000);
+    const early = await hint(cookie, 0, 0);
+    expect(early.status).toBe(409);
+    expect((await early.json()).error).toBe("not_yet_available");
+    at(600_000);
+    const ok = await hint(cookie, 0, 0);
+    expect(ok.status).toBe(200);
+    expect((await ok.json()).penaltySeconds).toBe(0);
+  });
+
+  it("exposes per-hint penalties and the unlock time in the view", async () => {
+    const { data } = await start();
+    const roadmap = data.hints.find((g: { artifact: number }) => g.artifact === 0);
+    expect(roadmap.unlocksAt).toBe(T0 + 600_000);
+    const vip = data.hints.find((g: { artifact: number }) => g.artifact === 1);
+    expect(vip.penalties).toEqual([90, 210]);
+    expect(vip.unlocksAt).toBeNull();
+  });
+
+  it("charges each hint its own escalating penalty", async () => {
+    const { cookie } = await start();
+    await hint(cookie, 1, 0);
+    const second = await (await hint(cookie, 1, 1)).json();
+    expect(second.penaltySeconds).toBe(90 + 210);
   });
 });

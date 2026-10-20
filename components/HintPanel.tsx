@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { api, fmtMinutes } from "@/lib/api";
-import { beep, errorBuzz } from "@/lib/audio";
+import { useEffect, useRef, useState } from "react";
+import { api, fmtClock, fmtPenalty } from "@/lib/api";
+import { beep, errorBuzz, hintReveal, readyPing } from "@/lib/audio";
 import type { HintGroupView } from "@/lib/types";
 
 interface Props {
   hints: HintGroupView[];
   locked: boolean;
+  /** Current server time estimate in ms (0 before hydration). */
+  nowMs: number;
   onUpdate: (hints: HintGroupView[], penaltySeconds: number) => void;
   onSessionLost: () => void;
 }
@@ -18,10 +20,20 @@ interface Pending {
   penaltySeconds: number;
 }
 
-export default function HintPanel({ hints, locked, onUpdate, onSessionLost }: Props) {
+export default function HintPanel({ hints, locked, nowMs, onUpdate, onSessionLost }: Props) {
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Ping once when a timed hint group (e.g. the roadmap) unlocks while the console is open.
+  const lockedGroups = useRef<Set<number> | null>(null);
+  useEffect(() => {
+    if (!nowMs) return;
+    const nowLocked = new Set(hints.filter((g) => g.unlocksAt && g.unlocksAt > nowMs).map((g) => g.artifact));
+    const prev = lockedGroups.current;
+    if (prev && [...prev].some((a) => !nowLocked.has(a))) readyPing();
+    lockedGroups.current = nowLocked;
+  }, [hints, nowMs]);
 
   const confirm = async () => {
     if (!pending) return;
@@ -30,14 +42,18 @@ export default function HintPanel({ hints, locked, onUpdate, onSessionLost }: Pr
     try {
       const r = await api.hint(pending.artifact, pending.index);
       if (r.status === 200) {
-        beep();
+        hintReveal();
         onUpdate(r.data.hints, r.data.penaltySeconds);
         setPending(null);
       } else if (r.status === 401) {
         onSessionLost();
       } else {
         errorBuzz();
-        setError("HINT REQUEST REJECTED. REFRESH AND TRY AGAIN.");
+        setError(
+          r.data?.error === "not_yet_available"
+            ? "HINT STILL ENCRYPTED. WAIT FOR THE COUNTDOWN."
+            : "HINT REQUEST REJECTED. REFRESH AND TRY AGAIN.",
+        );
         setPending(null);
       }
     } catch {
@@ -61,12 +77,18 @@ export default function HintPanel({ hints, locked, onUpdate, onSessionLost }: Pr
           .sort((a, b) => (a.artifact === 0 ? -1 : b.artifact === 0 ? 1 : a.title.localeCompare(b.title)))
           .map((g) => {
           const next = g.revealed.length;
+          const waitMs = g.unlocksAt && nowMs ? Math.max(0, g.unlocksAt - nowMs) : g.unlocksAt ? 1 : 0;
           return (
             <div className="hint-group" key={g.artifact}>
               <h3>
-                {g.title} —{" "}
-                {g.penaltySeconds === 0 ? "FREE" : `+${fmtMinutes(g.penaltySeconds)} MIN EACH`}
+                {g.title}
+                {g.penalties.every((p) => p === 0) ? " — FREE" : ""}
               </h3>
+              {waitMs > 0 && next === 0 && (
+                <p className="muted-text">
+                  ENCRYPTED — UNLOCKS IN {nowMs ? fmtClock(waitMs / 1000) : "--:--"}
+                </p>
+              )}
               <ol className="hint-list">
                 {g.revealed.map((text, i) => (
                   <li key={i}>
@@ -84,14 +106,14 @@ export default function HintPanel({ hints, locked, onUpdate, onSessionLost }: Pr
                       <button
                         type="button"
                         className="btn hint-btn"
-                        disabled={!isNext || locked}
+                        disabled={!isNext || locked || waitMs > 0}
                         onClick={() => {
                           beep();
-                          setPending({ artifact: g.artifact, index, penaltySeconds: g.penaltySeconds });
+                          setPending({ artifact: g.artifact, index, penaltySeconds: g.penalties[index] });
                         }}
                       >
-                        {isNext ? "[ REVEAL ]" : "[ LOCKED ]"} HINT {index + 1}/{g.total} · PENALTY +
-                        {fmtMinutes(g.penaltySeconds)} MIN
+                        {isNext && waitMs === 0 ? "[ REVEAL ]" : "[ LOCKED ]"} HINT {index + 1}/{g.total} ·{" "}
+                        {g.penalties[index] === 0 ? "FREE" : `PENALTY +${fmtPenalty(g.penalties[index])}`}
                       </button>
                     </li>
                   );
@@ -106,7 +128,9 @@ export default function HintPanel({ hints, locked, onUpdate, onSessionLost }: Pr
         <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="hint-confirm">
           <div className="dialog">
             <p id="hint-confirm" className="head" style={{ fontSize: "1.6rem" }}>
-              CONFIRM: REVEAL HINT? PENALTY +{fmtMinutes(pending.penaltySeconds)} MIN
+              {pending.penaltySeconds === 0
+                ? "CONFIRM: REVEAL FREE HINT?"
+                : `CONFIRM: REVEAL HINT? PENALTY +${fmtPenalty(pending.penaltySeconds)}`}
             </p>
             <div className="row">
               <button type="button" className="btn" onClick={confirm} disabled={busy} autoFocus>

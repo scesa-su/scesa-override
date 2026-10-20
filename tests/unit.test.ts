@@ -107,15 +107,16 @@ describe("leaderboard secret", () => {
 
 describe("hint catalog", () => {
   it("has the expected groups, counts and penalties", () => {
-    expect(getCatalog().map((g) => [g.artifact, g.hints.length, g.penaltySeconds])).toEqual([
-      [0, 1, 0],
-      [1, 2, 150],
-      [2, 2, 120],
-      [3, 2, 90],
-      [4, 2, 90],
-      [5, 3, 60],
-      [6, 3, 45],
+    expect(getCatalog().map((g) => [g.artifact, g.hints.length, g.penalties])).toEqual([
+      [0, 1, [0]],
+      [1, 2, [90, 210]],
+      [2, 2, [60, 180]],
+      [3, 2, [60, 120]],
+      [4, 2, [60, 120]],
+      [5, 3, [30, 60, 90]],
+      [6, 3, [30, 45, 60]],
     ]);
+    expect(getCatalog()[0].unlockAfterSeconds).toBe(600);
   });
 });
 
@@ -163,7 +164,7 @@ describe("game content loader", () => {
 
   const sample = {
     codes: ["111", "222", "333", "444", "555", "999"],
-    hints: [{ artifact: 0, title: "T", penaltySeconds: 0, hints: ["h"] }],
+    hints: [{ artifact: 0, title: "T", penalties: [0], hints: ["h"] }],
     vault: { lines: ["done"], winnerBanner: "win", rankBanner: "rank #{rank}" },
   };
   const b64 = (v: unknown) => Buffer.from(JSON.stringify(v), "utf8").toString("base64");
@@ -181,6 +182,15 @@ describe("game content loader", () => {
     vi.stubEnv("GAME_CONTENT_FILE", "");
     resetContentCache();
     expect(() => getContent()).toThrow(/GAME_CONTENT must be set/);
+  });
+
+  it("accepts the older flat penaltySeconds format", () => {
+    vi.stubEnv(
+      "GAME_CONTENT",
+      b64({ ...sample, hints: [{ artifact: 0, title: "T", penaltySeconds: 45, hints: ["a", "b"] }] }),
+    );
+    resetContentCache();
+    expect(getContent().hints[0].penalties).toEqual([45, 45]);
   });
 
   it("rejects malformed content", () => {

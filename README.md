@@ -9,9 +9,10 @@ Teams solve a set of physical puzzles, assemble a six-part override sequence and
 ## Features
 
 - **1980s CRT look.** Phosphor-green text with CSS-only scanlines, vignette, flicker and a blinking cursor. Flicker and shake respect `prefers-reduced-motion`.
-- **Synthesised sound.** Key clicks, error buzz, boot alarm and victory chime, all generated with the Web Audio API (no audio files), with a mute toggle.
+- **Synthesised audio.** A looping chiptune soundtrack plus sound effects: typing clicks, error buzz, boot alarm, hint decrypt, unlock ping and victory chime. Everything is generated with the Web Audio API (no audio files). Music and SFX have separate switches; music starts off.
+- **Mission briefing.** A popup that opens when a team first reaches the console, and can be reopened any time.
 - **Server-authoritative scoring.** The browser never sees the answer key or unrevealed hints. Start time, penalties and the final time are computed and frozen on the server. Changing the device clock, clearing storage or pausing JavaScript does not change a team's official time.
-- **Progressive hints.** Each hint costs a time penalty. Hints for an artifact unlock in order, and each one is charged only once.
+- **Progressive hints.** Hints for an artifact unlock in order and are charged once. Penalties can escalate from a cheap nudge to an expensive direct hint, and a hint group can stay locked until a set time after the team starts.
 - **Brute-force protection.** After a wrong code, the server enforces a 3-second lockout before the next attempt.
 - **Session resume.** Each team gets a resume code. The same call-sign can only be reused with the original browser or that code, and repeated wrong resume codes are locked out.
 - **Winner claims and leaderboard.** Teams register both members after solving. Organisers see a live, secret-protected leaderboard.
@@ -45,7 +46,13 @@ All puzzle-specific text lives in one JSON document with this shape (see the dem
 {
   "codes": ["123", "456", "789", "246", "135", "864"],   // six 3-digit parts, in slot order
   "hints": [
-    { "artifact": 0, "title": "…", "penaltySeconds": 0, "hints": ["…"] }   // vague → direct
+    {
+      "artifact": 0,
+      "title": "…",
+      "unlockAfterSeconds": 600,      // optional: locked until 10 min after start
+      "penalties": [0],               // one penalty (seconds) per hint
+      "hints": ["…"]                  // vague → direct
+    }
   ],
   "vault": {
     "lines": ["…"],                 // shown after a correct override

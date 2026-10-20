@@ -13,8 +13,10 @@ export interface HintGroup {
   /** 0 = roadmap, 1-6 = artifacts in code-slot order. */
   artifact: number;
   title: string;
-  /** Penalty in seconds charged for each hint in this group. */
-  penaltySeconds: number;
+  /** Penalty in seconds for each hint, same length as `hints` (usually escalating). */
+  penalties: readonly number[];
+  /** Seconds after the team's start before this group can be opened (default 0). */
+  unlockAfterSeconds?: number;
   hints: readonly string[];
 }
 
@@ -44,12 +46,21 @@ function validate(raw: unknown): GameContent {
   }
   if (!Array.isArray(c.hints) || c.hints.length === 0) fail("hints missing");
   for (const grp of c.hints) {
+    // Older content used one flat `penaltySeconds` per group: expand it to per-hint penalties.
+    const legacy = grp as unknown as { penaltySeconds?: unknown; penalties?: unknown; hints?: unknown };
+    if (legacy.penalties === undefined && typeof legacy.penaltySeconds === "number" && Array.isArray(legacy.hints)) {
+      (grp as { penalties: number[] }).penalties = legacy.hints.map(() => legacy.penaltySeconds as number);
+    }
     if (
       !Number.isInteger(grp.artifact) ||
       typeof grp.title !== "string" ||
-      !Number.isFinite(grp.penaltySeconds) ||
       !Array.isArray(grp.hints) ||
-      !grp.hints.every((h: unknown) => typeof h === "string")
+      !grp.hints.every((h: unknown) => typeof h === "string") ||
+      !Array.isArray(grp.penalties) ||
+      grp.penalties.length !== grp.hints.length ||
+      !grp.penalties.every((p: unknown) => typeof p === "number" && Number.isFinite(p) && p >= 0) ||
+      (grp.unlockAfterSeconds !== undefined &&
+        !(typeof grp.unlockAfterSeconds === "number" && grp.unlockAfterSeconds >= 0))
     ) {
       fail(`hint group ${String(grp?.artifact)} malformed`);
     }

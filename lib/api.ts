@@ -29,7 +29,7 @@ export const api = {
   start: (callsign: string, resumeCode?: string) =>
     post<SessionView>("/api/session/start", { callsign, resumeCode }),
   hint: (artifact: number, index: number) =>
-    post<{ text: string; penaltySeconds: number; hints: HintGroupView[] }>("/api/hint", {
+    post<{ text: string; penaltySeconds: number; hints: HintGroupView[]; error?: string }>("/api/hint", {
       artifact,
       index,
     }),
