@@ -13,7 +13,8 @@ Teams solve a set of physical puzzles, assemble a six-part override sequence and
 - **Mission briefing.** A popup that opens when a team first reaches the console, and can be reopened any time.
 - **Server-authoritative scoring.** The browser never sees the answer key or unrevealed hints. Start time, penalties and the final time are computed and frozen on the server. Changing the device clock, clearing storage or pausing JavaScript does not change a team's official time.
 - **Progressive hints.** Hints for an artifact unlock in order and are charged once. Penalties can escalate from a cheap nudge to an expensive direct hint, and a hint group can stay locked until a set time after the team starts.
-- **Brute-force protection.** After a wrong code, the server enforces a 3-second lockout before the next attempt.
+- **Brute-force protection.** After a wrong code, the server enforces a lockout before the next attempt: 3 seconds for the first 5 misses, 30 seconds up to 10, then 2 minutes.
+- **Online events.** Optional shared start and end times, a roster of registered teams with access codes, and a case-file download link. The leaderboard flags teams that finish within 3 minutes of each other.
 - **Session resume.** Each team gets a resume code. The same call-sign can only be reused with the original browser or that code, and repeated wrong resume codes are locked out.
 - **Winner claims and leaderboard.** Teams register both members after solving. Organisers see a live, secret-protected leaderboard.
 - **Mobile-first.** Works on phones down to 360px wide.
@@ -85,6 +86,11 @@ Copy [`.env.example`](.env.example) to `.env.local` for local overrides.
 | `LEADERBOARD_SECRET` | yes | Unlocks the organiser leaderboard. If unset, the leaderboard stays locked. |
 | `KV_REST_API_URL`, `KV_REST_API_TOKEN` | yes* | Set automatically when you connect Upstash Redis through Vercel. |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | yes* | Use these instead if you connect an Upstash database directly. |
+| `EVENT_START` | no | ISO time (with offset) every team's clock starts from. Nobody can start before it. |
+| `EVENT_END` | no | ISO time after which codes and hints are refused and no new team can start. |
+| `TEAMS` | no | Base64 roster of registered teams. When set, only those teams can play, each with its access code. |
+| `TEAMS_FILE` | no | Path to a roster JSON, for local testing. |
+| `CASE_FILE_URL` | no | Case-file download link shown to teams once they are in. |
 | `ALLOW_MEMORY_STORE` | no | Set to `1` to allow a non-persistent in-memory store in production (not recommended). |
 
 \* Set one of the two Redis pairs. Custom prefixes added by Vercel (for example `storage_KV_REST_API_URL`) are detected automatically. Without Redis, production returns errors on purpose, so that scores aren't silently lost. Check the configuration at `/api/health`.
@@ -94,6 +100,14 @@ Generate a secret with:
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
+
+## Running an online event
+
+1. List the registered team names in a text file, one per line, kept **outside** this repository.
+2. Run `npm run teams:make -- /path/to/team-names.txt /path/to/roster.json`. It prints each team's 6-digit access code and, on stdout, the `TEAMS` value. Re-running keeps existing codes.
+3. Set `TEAMS`, `EVENT_START`, `EVENT_END` and `CASE_FILE_URL` in Vercel, then redeploy.
+
+Before `EVENT_START` the portal shows a countdown. Every session's clock counts from `EVENT_START`, so joining late costs time, and timed hint groups unlock relative to it. A team's access code also works as its resume code, so both partners can log in on their own devices.
 
 ## Deploying to Vercel
 
@@ -110,6 +124,7 @@ All responses are `Cache-Control: no-store`. Session routes need the signed sess
 |---|---|
 | `POST /api/session/start` | Start or resume a team session `{ callsign, resumeCode? }`. |
 | `GET /api/session` | Current session state, used to restore the screen on reload. |
+| `GET /api/event` | Public event schedule and whether entry needs a team code. |
 | `POST /api/hint` | Reveal the next hint for an artifact `{ artifact, index }`. Each hint is charged once. |
 | `POST /api/verify` | Check the six-part code `{ parts }` or `{ code }`. A wrong code triggers a 3-second lockout. |
 | `POST /api/claim` | Register the winning pair after solving. |

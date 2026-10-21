@@ -52,7 +52,9 @@ export default function HintPanel({ hints, locked, nowMs, onUpdate, onSessionLos
         setError(
           r.data?.error === "not_yet_available"
             ? "HINT STILL ENCRYPTED. WAIT FOR THE COUNTDOWN."
-            : "HINT REQUEST REJECTED. REFRESH AND TRY AGAIN.",
+            : r.data?.error === "event_over"
+              ? "THE HUNT HAS ENDED. HINTS ARE CLOSED."
+              : "HINT REQUEST REJECTED. REFRESH AND TRY AGAIN.",
         );
         setPending(null);
       }

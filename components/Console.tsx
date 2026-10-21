@@ -122,6 +122,8 @@ export default function Console({ session, offsetMs, onFlash, onSolved, onHints,
         startLock(d.retryAfterMs ?? 3000);
       } else if (r.status === 401) {
         onSessionLost();
+      } else if (r.status === 403) {
+        setNetError("THE HUNT HAS ENDED. THE TERMINAL NO LONGER ACCEPTS CODES.");
       } else if (r.status === 400) {
         setNetError("EACH PART MUST BE EXACTLY 3 DIGITS.");
       } else {
@@ -154,6 +156,12 @@ export default function Console({ session, offsetMs, onFlash, onSolved, onHints,
           <span className="muted-text">(write this down)</span>
         </div>
       </div>
+
+      {session.caseFileUrl && (
+        <a className="btn brief-btn case-file" href={session.caseFileUrl} target="_blank" rel="noopener noreferrer">
+          [ DOWNLOAD CASE FILE ]
+        </a>
+      )}
 
       <h1 id="console-title" className="head" style={{ fontSize: "clamp(1.5rem, 6vw, 2.2rem)" }}>
         ENTER 6-PART OVERRIDE SEQUENCE
@@ -215,7 +223,14 @@ export default function Console({ session, offsetMs, onFlash, onSolved, onHints,
         onUpdate={onHints}
         onSessionLost={onSessionLost}
       />
-      {showBrief && <Briefing resumeCode={session.resumeCode} onClose={closeBrief} />}
+      {showBrief && (
+        <Briefing
+          resumeCode={session.resumeCode}
+          caseFileUrl={session.caseFileUrl}
+          endsAt={session.endsAt}
+          onClose={closeBrief}
+        />
+      )}
     </section>
   );
 }

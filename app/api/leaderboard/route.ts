@@ -26,6 +26,7 @@ function renderHtml(data: Awaited<ReturnType<typeof getLeaderboard>>): string {
 <td>${esc(e.partner2Name)}<br><small>${esc(e.partner2Adm)}</small></td>
 <td>${fmt(e.rawTime)}</td><td>+${fmt(e.penaltyTime)}</td><td><b>${fmt(e.totalScoreTime)}</b></td>
 <td>${esc(new Date(e.completedAt).toLocaleString("en-KE", { timeZone: "Africa/Nairobi" }))}</td>
+<td>${e.closeFinish.length ? `<span class="flag">⚑ ${esc(e.closeFinish.join(", "))}</span>` : ""}</td>
 </tr>`,
     )
     .join("");
@@ -43,12 +44,13 @@ th,td{border:1px solid #14532d;padding:6px 8px;text-align:left;vertical-align:to
 th{color:#4ade80;background:#0a120a}
 tr:first-child td{color:#4ade80}
 small{opacity:.7}
+.flag{color:#facc15}
 </style></head><body>
 <h1>SENTINEL OVERRIDE // OFFICIAL LEADERBOARD</h1>
 <p>SESSIONS STARTED: ${data.sessions.started} · SOLVED: ${data.sessions.solved} · CLAIMS: ${data.entries.length} · AUTO-REFRESH 10s</p>
 <div class="wrap"><table>
-<thead><tr><th>RANK</th><th>CALL-SIGN</th><th>PARTNER 1</th><th>PARTNER 2</th><th>RAW</th><th>PENALTY</th><th>ADJUSTED</th><th>COMPLETED</th></tr></thead>
-<tbody>${rows || '<tr><td colspan="8">NO CLAIMS YET</td></tr>'}</tbody>
+<thead><tr><th>RANK</th><th>CALL-SIGN</th><th>PARTNER 1</th><th>PARTNER 2</th><th>RAW</th><th>PENALTY</th><th>ADJUSTED</th><th>COMPLETED</th><th>FINISHED WITHIN 3 MIN OF</th></tr></thead>
+<tbody>${rows || '<tr><td colspan="9">NO CLAIMS YET</td></tr>'}</tbody>
 </table></div></body></html>`;
 }
 

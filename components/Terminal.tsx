@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { alarm, beep, confirmBlip, errorBuzz, unlockAudio, victoryChime } from "@/lib/audio";
-import type { SessionView } from "@/lib/types";
+import type { EventInfo, SessionView } from "@/lib/types";
 import AntiInspect from "./AntiInspect";
 import BootSequence from "./BootSequence";
 import Console from "./Console";
@@ -21,6 +21,8 @@ export default function Terminal() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needResume, setNeedResume] = useState(false);
+  const [event, setEvent] = useState<EventInfo | null>(null);
+  const [eventOffsetMs, setEventOffsetMs] = useState(0);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const adopt = useCallback((s: SessionView) => {
@@ -30,6 +32,16 @@ export default function Terminal() {
 
   useEffect(() => {
     let cancelled = false;
+    api
+      .event()
+      .then((r) => {
+        if (cancelled || r.status !== 200 || !r.data) return;
+        setEvent(r.data);
+        setEventOffsetMs(r.data.serverNow - Date.now());
+      })
+      .catch(() => {
+        /* no event info: the portal works as a walk-in terminal */
+      });
     api
       .session()
       .then((r) => {
@@ -85,10 +97,27 @@ export default function Terminal() {
       } else if (r.status === 400) {
         errorBuzz();
         setError("INVALID CALL-SIGN. USE 1-32 CHARACTERS.");
+      } else if (r.status === 403) {
+        errorBuzz();
+        const code = (r.data as unknown as { error?: string; startsAt?: number } | null)?.error;
+        setError(
+          code === "not_started"
+            ? "THE CASE FILE IS NOT OPEN YET. WAIT FOR THE COUNTDOWN."
+            : code === "not_registered"
+              ? "TEAM NOT REGISTERED. USE THE EXACT TEAM NAME YOU REGISTERED WITH."
+              : "THE HUNT HAS ENDED. NO NEW TEAMS CAN START.",
+        );
       } else if (r.status === 409) {
         errorBuzz();
         setNeedResume(true);
-        setError("CALL-SIGN IN USE — ENTER YOUR RESUME CODE OR PICK ANOTHER NAME");
+        const code = (r.data as unknown as { error?: string } | null)?.error;
+        setError(
+          code === "code_required"
+            ? resumeCode
+              ? "WRONG TEAM CODE. CHECK IT AND TRY AGAIN."
+              : "ENTER YOUR TEAM ACCESS CODE."
+            : "CALL-SIGN IN USE — ENTER YOUR RESUME CODE OR PICK ANOTHER NAME",
+        );
       } else if (r.status === 429) {
         errorBuzz();
         setError("TOO MANY ATTEMPTS — WAIT A FEW MINUTES OR ASK AN ORGANISER");
@@ -122,6 +151,8 @@ export default function Terminal() {
           busy={busy}
           error={error}
           needResume={needResume}
+          event={event}
+          offsetMs={eventOffsetMs}
           onStart={start}
           onCallsignChange={() => {
             setNeedResume(false);

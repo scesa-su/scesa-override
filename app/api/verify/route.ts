@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { parseParts } from "@/lib/server/codes";
 import { NEUTRAL_BANNER, vaultLines } from "@/lib/server/hints";
 import { handle, json, noSession, readJson, sessionIdFrom } from "@/lib/server/http";
-import { COOLDOWN_MS, loadSession, verifyCode } from "@/lib/server/session";
+import { cooldownFor, loadSession, verifyCode } from "@/lib/server/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ export const POST = handle(async (req: NextRequest) => {
       "Retry-After": String(Math.ceil(r.retryAfterMs / 1000)),
     });
   }
-  if (r.kind === "wrong") return json({ ok: false, cooldownMs: COOLDOWN_MS }, 401);
+  if (r.kind === "wrong") return json({ ok: false, cooldownMs: cooldownFor(r.session.attempts) }, 401);
   const t = r.session.solved!;
   return json({
     ok: true,

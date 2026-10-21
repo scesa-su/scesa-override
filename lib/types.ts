@@ -49,4 +49,15 @@ export interface SessionView {
   vault: VaultContent | null;
   claim: Claim | null;
   rank: number | null;
+  /** Download link for the case file, when the organisers set one. */
+  caseFileUrl: string | null;
+  /** Epoch ms after which codes and hints are refused, or null. */
+  endsAt: number | null;
+}
+
+export interface EventInfo {
+  startsAt: number | null;
+  endsAt: number | null;
+  teamCodes: boolean;
+  serverNow: number;
 }

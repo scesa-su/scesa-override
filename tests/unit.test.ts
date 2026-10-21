@@ -33,7 +33,7 @@ describe("scoring math", () => {
   });
 
   it("computes the remaining 3 s cooldown", () => {
-    const s = { lastFailAt: 1000 } as Session;
+    const s = { lastFailAt: 1000, attempts: 1 } as Session;
     expect(cooldownRemaining(s, 1000)).toBe(3000);
     expect(cooldownRemaining(s, 3500)).toBe(500);
     expect(cooldownRemaining(s, 4000)).toBe(0);

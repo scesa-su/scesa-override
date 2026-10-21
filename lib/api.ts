@@ -1,4 +1,4 @@
-import type { Claim, HintGroupView, SessionView, VaultContent } from "./types";
+import type { Claim, EventInfo, HintGroupView, SessionView, VaultContent } from "./types";
 
 export interface ApiResult<T> {
   status: number;
@@ -26,6 +26,7 @@ const post = <T>(path: string, body: unknown) =>
 
 export const api = {
   session: () => call<SessionView>("/api/session"),
+  event: () => call<EventInfo>("/api/event"),
   start: (callsign: string, resumeCode?: string) =>
     post<SessionView>("/api/session/start", { callsign, resumeCode }),
   hint: (group: string, index: number) =>

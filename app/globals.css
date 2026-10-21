@@ -805,3 +805,9 @@ input {
     animation: none;
   }
 }
+
+.case-file {
+  display: inline-block;
+  margin-right: 8px;
+  text-decoration: none;
+}

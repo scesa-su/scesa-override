@@ -6,11 +6,13 @@ import SplitTitle from "./SplitTitle";
 
 interface Props {
   resumeCode: string;
+  caseFileUrl: string | null;
+  endsAt: number | null;
   onClose: () => void;
 }
 
 /** Mission briefing shown once when a team first reaches the console; reopenable any time. */
-export default function Briefing({ resumeCode, onClose }: Props) {
+export default function Briefing({ resumeCode, caseFileUrl, endsAt, onClose }: Props) {
   const ack = useRef<HTMLButtonElement>(null);
   // Latest onClose without re-running the mount effect on every parent render (the clock ticks often).
   const close = useRef(onClose);
@@ -55,8 +57,14 @@ export default function Briefing({ resumeCode, onClose }: Props) {
           <h3>RULES OF ENGAGEMENT</h3>
           <ul>
             <li>Your clock is running and is kept by the server — refreshing won&apos;t pause it.</li>
+            {endsAt !== null && (
+              <li>
+                Every team started together. The terminal closes at{" "}
+                <b>{new Date(endsAt).toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit" })}</b>.
+              </li>
+            )}
             <li>Operator hints cost time. Each one shows its penalty before you confirm.</li>
-            <li>A wrong sequence locks the terminal for 3 seconds.</li>
+            <li>A wrong sequence locks the terminal for 3 seconds. Repeated misses lock it for longer.</li>
             <li>Lowest adjusted time (clock + penalties) wins.</li>
           </ul>
         </div>
@@ -67,6 +75,16 @@ export default function Briefing({ resumeCode, onClose }: Props) {
             Write it down. You&apos;ll need it if you switch device or clear your browser.
           </span>
         </div>
+
+        {caseFileUrl && (
+          <p>
+            Evidence:{" "}
+            <a href={caseFileUrl} target="_blank" rel="noopener noreferrer">
+              download the case file
+            </a>
+            .
+          </p>
+        )}
 
         <p className="muted-text">Tip: the group chat is a good place to start.</p>
 

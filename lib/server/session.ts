@@ -2,12 +2,19 @@ import "server-only";
 import { createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import type { Claim, HintGroupView, SessionView, SolvedTimes } from "@/lib/types";
 import { checkCode } from "./codes";
+import { caseFileUrl, eventEnd, eventOver, eventStart, roster, teamKey } from "./event";
 import { bannerForRank, getGroupById, groupId, orderedCatalog, vaultLines } from "./hints";
 import { getStore } from "./store";
 
 export const COOKIE_NAME = "sso_sid";
 export const COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 export const COOLDOWN_MS = 3000;
+/** Lockout after the nth wrong code: short at first, then long enough to make guessing a part impractical. */
+export const COOLDOWN_STEPS: readonly { upTo: number; ms: number }[] = [
+  { upTo: 5, ms: COOLDOWN_MS },
+  { upTo: 10, ms: 30_000 },
+  { upTo: Infinity, ms: 120_000 },
+];
 export const CALLSIGN_MAX = 32;
 export const RESUME_MAX_FAILS = 5;
 export const RESUME_FAIL_WINDOW_MS = 10 * 60 * 1000;
@@ -100,9 +107,14 @@ export function computeTimes(startTime: number, now: number, penaltySeconds: num
   return { rawTime, penaltyTime: penaltySeconds, totalScoreTime: rawTime + penaltySeconds };
 }
 
+export function cooldownFor(fails: number): number {
+  return COOLDOWN_STEPS.find((step) => fails <= step.upTo)!.ms;
+}
+
 export function cooldownRemaining(s: Session, now: number): number {
   if (s.lastFailAt === null) return 0;
-  return Math.max(0, s.lastFailAt + COOLDOWN_MS - now);
+  // Every attempt before solving was a miss, so attempts counts the failures.
+  return Math.max(0, s.lastFailAt + cooldownFor(s.attempts) - now);
 }
 
 // ---------------------------------------------------------------- helpers
@@ -196,6 +208,8 @@ export async function toView(s: Session, now = Date.now()): Promise<SessionView>
     vault: s.solved ? { lines: vaultLines(), banner: bannerForRank(rank) } : null,
     claim,
     rank,
+    caseFileUrl: caseFileUrl(),
+    endsAt: eventEnd(),
   };
 }
 
@@ -219,30 +233,46 @@ export async function startSession(
 ): Promise<Session> {
   const cs = normalizeCallsign(callsignInput);
   if (!cs) throw new HttpError(400, { error: "invalid_callsign" });
+  const now = Date.now();
+  const startsAt = eventStart();
+  if (startsAt !== null && now < startsAt) throw new HttpError(403, { error: "not_started", startsAt });
+  const teams = roster();
+  const team = teams ? teams.get(teamKey(cs.display)) : undefined;
+  if (teams && !team) throw new HttpError(403, { error: "not_registered" });
   const store = getStore();
   const indexKey = k.callsign(cs.key);
+  const attempted = resumeCodeInput !== undefined && resumeCodeInput !== null && resumeCodeInput !== "";
+  // Count the attempt atomically before comparing, so parallel guesses can't all slip under the cap.
+  const codeMatches = async (expected: string) => {
+    const attempts = await store.incrEx(k.resumeFails(cs.key), RESUME_FAIL_WINDOW_MS);
+    if (attempts > RESUME_MAX_FAILS) throw new HttpError(429, { error: "too_many_attempts" });
+    if (!resumeCodeMatches(resumeCodeInput, expected)) return false;
+    // Only misses count: both partners and device switches must not use up the allowance.
+    await store.del(k.resumeFails(cs.key));
+    return true;
+  };
 
   const existingId = await store.get<string>(indexKey);
   if (existingId) {
     const existing = await loadSession(existingId);
     if (existing) {
       if (cookieSessionId === existing.id) return existing;
-      const attempted = resumeCodeInput !== undefined && resumeCodeInput !== null && resumeCodeInput !== "";
-      if (attempted) {
-        // Count the attempt atomically before comparing, so parallel guesses can't all slip under the cap.
-        const attempts = await store.incrEx(k.resumeFails(cs.key), RESUME_FAIL_WINDOW_MS);
-        if (attempts > RESUME_MAX_FAILS) throw new HttpError(429, { error: "too_many_attempts" });
-        if (resumeCodeMatches(resumeCodeInput, existing.resumeCode)) return existing;
-      }
-      throw new HttpError(409, { error: "callsign_taken" });
+      if (attempted && (await codeMatches(existing.resumeCode))) return existing;
+      throw new HttpError(409, { error: team ? "code_required" : "callsign_taken" });
     }
+  }
+
+  if (eventOver(now)) throw new HttpError(403, { error: "event_over" });
+  if (team && !(attempted && (await codeMatches(team.code)))) {
+    throw new HttpError(409, { error: "code_required" });
   }
 
   const s: Session = {
     id: randomUUID(),
-    callsign: cs.display,
-    resumeCode: String(randomInt(0, 1_000_000)).padStart(6, "0"),
-    startTime: Date.now(),
+    callsign: team ? team.callsign : cs.display,
+    resumeCode: team ? team.code : String(randomInt(0, 1_000_000)).padStart(6, "0"),
+    // With a shared start, a late team's clock still counts from the start.
+    startTime: startsAt ?? now,
     revealed: {},
     penaltySeconds: 0,
     attempts: 0,
@@ -283,6 +313,7 @@ export async function revealHint(
     const n = s.revealed[String(artifact)] ?? 0;
     if (index < n) return { text: grp.hints[index], session: s }; // repeat: no charge
     if (s.solved) throw new HttpError(409, { error: "already_solved" });
+    if (eventOver()) throw new HttpError(403, { error: "event_over" });
     if (index > n) throw new HttpError(409, { error: "out_of_order", next: n });
     const unlocksAt = s.startTime + (grp.unlockAfterSeconds ?? 0) * 1000;
     const now = Date.now();
@@ -306,6 +337,7 @@ export async function verifyCode(id: string, parts: string[] | null): Promise<Ve
     if (s.solved) return { kind: "solved", session: s };
     if (!parts) throw new HttpError(400, { error: "malformed" });
     const now = Date.now();
+    if (eventOver(now)) throw new HttpError(403, { error: "event_over" });
     const wait = cooldownRemaining(s, now);
     if (wait > 0) return { kind: "cooldown", retryAfterMs: wait };
 
@@ -388,7 +420,11 @@ export async function submitClaim(
 export interface LeaderboardEntry extends Claim {
   rank: number;
   sessionId: string;
+  /** Call-signs of other teams that finished within CLOSE_FINISH_MS: worth a look for shared answers. */
+  closeFinish: string[];
 }
+
+export const CLOSE_FINISH_MS = 3 * 60 * 1000;
 
 async function leaderboardEntries(): Promise<LeaderboardEntry[]> {
   const store = getStore();
@@ -407,7 +443,13 @@ async function leaderboardEntries(): Promise<LeaderboardEntry[]> {
         a.completedAt.localeCompare(b.completedAt) ||
         a.sessionId.localeCompare(b.sessionId),
     )
-    .map((r, i) => ({ ...r, rank: i + 1 }));
+    .map((r, i, all) => {
+      const at = Date.parse(r.completedAt);
+      const closeFinish = all
+        .filter((o) => o !== r && Math.abs(Date.parse(o.completedAt) - at) <= CLOSE_FINISH_MS)
+        .map((o) => o.teamCallsign);
+      return { ...r, rank: i + 1, closeFinish };
+    });
 }
 
 export async function getLeaderboard() {
