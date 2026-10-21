@@ -86,6 +86,7 @@ export default function Briefing({ resumeCode, caseFileUrl, endsAt, onClose }: P
           </p>
         )}
 
+        <p className="muted-text">Some evidence was made to be handled, not just read. A printer will help.</p>
         <p className="muted-text">Tip: the group chat is a good place to start.</p>
 
         <button
