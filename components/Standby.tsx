@@ -78,7 +78,7 @@ export default function Standby({ busy, error, needResume, onStart, onCallsignCh
         }}
       >
         <label className="field">
-          <span>{teamCodes ? "Registered Team Name" : "Enter Team Call-sign / Pair Name"}</span>
+          <span>{teamCodes ? "Team Name (Team Leader's First Name)" : "Enter Team Call-sign / Pair Name"}</span>
           <span className="term-input">
             <span className="mirror" aria-hidden="true">
               {callsign ? callsign : <span className="placeholder">_</span>}

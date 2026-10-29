@@ -104,7 +104,7 @@ export default function Terminal() {
           code === "not_started"
             ? "THE CASE FILE IS NOT OPEN YET. WAIT FOR THE COUNTDOWN."
             : code === "not_registered"
-              ? "TEAM NOT REGISTERED. USE THE EXACT TEAM NAME YOU REGISTERED WITH."
+              ? "TEAM NOT REGISTERED. ENTER YOUR TEAM LEADER'S FIRST NAME ONLY."
               : "THE HUNT HAS ENDED. NO NEW TEAMS CAN START.",
         );
       } else if (r.status === 409) {

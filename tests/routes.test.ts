@@ -222,10 +222,10 @@ describe("verify", () => {
     const body = await res.json();
     expect(body).toMatchObject({ ok: true, rawTime: 754, penaltyTime: 30, totalScoreTime: 784 });
     expect(body.vault.lines[0]).toBe("SENTINEL OVERRIDE SUCCESSFUL // AIR-GAP DECRYPTED");
-    expect(body.vault.banner).toBe("COMPLETE THE CLAIM FORM TO RECORD YOUR OFFICIAL RANK.");
+    expect(body.vault.banner).toBe("COMPLETE THE CLAIM FORM TO RECORD YOUR PROVISIONAL RANK.");
     const unclaimed = await (await sessionGET(req("/api/session", { cookie }))).json();
     expect(unclaimed.rank).toBeNull();
-    expect(unclaimed.vault.banner).toBe("COMPLETE THE CLAIM FORM TO RECORD YOUR OFFICIAL RANK.");
+    expect(unclaimed.vault.banner).toBe("COMPLETE THE CLAIM FORM TO RECORD YOUR PROVISIONAL RANK.");
 
     at(2_000_000);
     const again = await (await verify(cookie, WRONG)).json();

@@ -105,7 +105,7 @@ function ClaimForm({ onClaimed, onSessionLost }: Omit<Props, "session">) {
           className="head dialog-title"
           text="CLAIM YOUR VICTORY // OFFICIAL REGISTRATION"
         />
-        <p className="muted-text">Input details for both team members to record your official standing:</p>
+        <p className="muted-text">Input details for both team members to record your provisional standing:</p>
         <fieldset className="fieldset">
           <legend>PARTNER 1</legend>
           {field("partner1Name", "Full Name", false)}
@@ -122,7 +122,7 @@ function ClaimForm({ onClaimed, onSessionLost }: Omit<Props, "session">) {
           </p>
         )}
         <button type="submit" className="btn btn-big" disabled={busy}>
-          {busy ? "REGISTERING…" : "RECORD OFFICIAL STANDING"}
+          {busy ? "REGISTERING…" : "RECORD PROVISIONAL STANDING"}
         </button>
       </form>
     </div>
@@ -138,7 +138,7 @@ function Certificate({ claim, rank, banner }: { claim: Claim; rank: number | nul
   return (
     <div className="cert">
       <SplitTitle as="p" className="org" text="SENTINEL OVERRIDE // OFFICIAL CERTIFICATE" />
-      <p className="head rank">OFFICIAL RECORDED RANK #{rank ?? "—"}</p>
+      <p className="head rank">PROVISIONAL RANK #{rank ?? "—"}</p>
       <p className="muted-text">PROVISIONAL RANK AT TIME OF CLAIM — FINAL STANDINGS CONFIRMED BY ORGANISERS.</p>
       <dl>
         <dt>TEAM</dt>

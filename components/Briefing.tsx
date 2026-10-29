@@ -60,7 +60,7 @@ export default function Briefing({ resumeCode, caseFileUrl, endsAt, onClose }: P
             {endsAt !== null && (
               <li>
                 Every team started together. The terminal closes at{" "}
-                <b>{new Date(endsAt).toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit" })}</b>.
+                <b>{new Date(endsAt).toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit", timeZone: "Africa/Nairobi" })}</b> (Nairobi time).
               </li>
             )}
             <li>Operator hints cost time. Each one shows its penalty before you confirm.</li>

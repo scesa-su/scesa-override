@@ -38,7 +38,7 @@ export function vaultLines(): readonly string[] {
 }
 
 /** Shown before a claim exists (no rank yet). */
-export const NEUTRAL_BANNER = "COMPLETE THE CLAIM FORM TO RECORD YOUR OFFICIAL RANK.";
+export const NEUTRAL_BANNER = "COMPLETE THE CLAIM FORM TO RECORD YOUR PROVISIONAL RANK.";
 
 /** Banner for a real rank, or the neutral one when there is no rank yet. */
 export function bannerForRank(rank: number | null): string {
