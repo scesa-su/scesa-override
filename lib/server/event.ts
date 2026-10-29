@@ -7,14 +7,17 @@ import path from "node:path";
  *   EVENT_START    ISO time every team's clock starts from (e.g. 2026-10-25T14:00:00+03:00).
  *                  Before it, nobody can start; after it, every session starts at it.
  *   EVENT_END      ISO time after which codes and hints are refused and no new team can start.
- *   TEAMS          base64 JSON roster [{ "callsign": "…", "code": "123456" }] (or TEAMS_FILE, a path).
- *                  When set, only registered call-signs can play and each needs its team code.
+ *   TEAMS          base64 JSON roster [{ "callsign": "…", "code": "123456", "members": ["…", "…"] }]
+ *                  (or TEAMS_FILE, a path). When set, only registered call-signs can play and each needs
+ *                  its team code. A team listing a single member must find a partner before it can start.
  *   CASE_FILE_URL  Link to the case-file download, shown to teams once they are in.
  */
 export interface Team {
   callsign: string;
   /** 6-digit access code; it doubles as the session's resume code. */
   code: string;
+  /** Leader then partner, full names. Omitted = not tracked; one name = still needs a partner. */
+  members?: string[];
 }
 
 export interface EventInfo {
@@ -65,9 +68,24 @@ function validateRoster(raw: unknown): Map<string, Team> {
     if (typeof t.code !== "string" || !/^\d{6}$/.test(t.code)) {
       throw new Error(`[scesa-override] TEAMS entry "${t.callsign}" needs a 6-digit code`);
     }
+    if (
+      t.members !== undefined &&
+      !(
+        Array.isArray(t.members) &&
+        t.members.length >= 1 &&
+        t.members.length <= 2 &&
+        t.members.every((m) => typeof m === "string" && m.trim().length > 0 && m.length <= 64)
+      )
+    ) {
+      throw new Error(`[scesa-override] TEAMS entry "${t.callsign}" needs 1-2 member names`);
+    }
     const key = teamKey(t.callsign);
     if (map.has(key)) throw new Error(`[scesa-override] TEAMS has a duplicate callsign "${t.callsign}"`);
-    map.set(key, { callsign: t.callsign.trim().replace(/\s+/g, " "), code: t.code });
+    map.set(key, {
+      callsign: t.callsign.trim().replace(/\s+/g, " "),
+      code: t.code,
+      ...(t.members && { members: t.members.map((m) => m.trim().replace(/\s+/g, " ")) }),
+    });
   }
   return map;
 }
@@ -78,6 +96,10 @@ function loadRoster(): Map<string, Team> | null {
   const file = process.env.TEAMS_FILE;
   if (file) return validateRoster(JSON.parse(readFileSync(path.resolve(file), "utf8")));
   return null;
+}
+
+export function needsPartner(team: Team): boolean {
+  return team.members !== undefined && team.members.length < 2;
 }
 
 /** Registered teams by normalised call-sign, or null for open entry. */

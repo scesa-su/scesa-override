@@ -27,6 +27,8 @@ const post = <T>(path: string, body: unknown) =>
 export const api = {
   session: () => call<SessionView>("/api/session"),
   event: () => call<EventInfo>("/api/event"),
+  team: (callsign: string, code: string) =>
+    post<{ callsign: string; members: string[]; ready: boolean; error?: string }>("/api/team", { callsign, code }),
   start: (callsign: string, resumeCode?: string) =>
     post<SessionView>("/api/session/start", { callsign, resumeCode }),
   hint: (group: string, index: number) =>

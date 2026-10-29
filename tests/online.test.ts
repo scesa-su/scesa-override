@@ -9,6 +9,7 @@ import { POST as verifyPOST } from "@/app/api/verify/route";
 import { POST as claimPOST } from "@/app/api/claim/route";
 import { GET as leaderboardGET } from "@/app/api/leaderboard/route";
 import { GET as eventGET } from "@/app/api/event/route";
+import { POST as teamPOST } from "@/app/api/team/route";
 import { getGroup, groupId } from "@/lib/server/hints";
 
 const T0 = new Date("2026-10-24T08:00:00.000Z").getTime();
@@ -197,5 +198,43 @@ describe("leaderboard close-finish flag", () => {
       body.entries.map((e: { teamCallsign: string; closeFinish: string[] }) => [e.teamCallsign, e.closeFinish]),
     );
     expect(flags).toEqual({ Alpha: ["Bravo"], Bravo: ["Alpha"], Charlie: [] });
+  });
+});
+
+describe("team verify and partner check", () => {
+  const PAIRS = [
+    { callsign: "Judah", code: "333333", members: ["Judah Ayieko", "Dennis Muchai"] },
+    { callsign: "Emma", code: "444444", members: ["Emma Ogwayo"] },
+  ];
+  const team = async (callsign: string, code: string) => {
+    const res = await teamPOST(req("/api/team", { body: { callsign, code } }));
+    return { status: res.status, data: await res.json() };
+  };
+  beforeEach(() => {
+    process.env.TEAMS = Buffer.from(JSON.stringify(PAIRS)).toString("base64");
+    process.env.EVENT_START = new Date(T0 + 60 * MIN).toISOString();
+    resetRosterCache();
+  });
+
+  it("shows members and clears a full pair before the start", async () => {
+    expect(await team("judah", "333333")).toEqual({
+      status: 200,
+      data: { callsign: "Judah", members: ["Judah Ayieko", "Dennis Muchai"], ready: true },
+    });
+  });
+
+  it("flags a team with no partner and refuses to start it", async () => {
+    expect((await team("Emma", "444444")).data).toEqual({ callsign: "Emma", members: ["Emma Ogwayo"], ready: false });
+    at(61 * MIN);
+    const r = await start("Emma", { resumeCode: "444444" });
+    expect(r.res.status).toBe(403);
+    expect(r.data).toEqual({ error: "needs_partner" });
+    expect((await start("Judah", { resumeCode: "333333" })).res.status).toBe(200);
+  });
+
+  it("rejects wrong codes and unknown teams, and caps guesses", async () => {
+    expect((await team("Nobody", "000000")).status).toBe(403);
+    for (let i = 0; i < 5; i++) expect((await team("Judah", "000000")).status).toBe(401);
+    expect((await team("Judah", "333333")).status).toBe(429);
   });
 });

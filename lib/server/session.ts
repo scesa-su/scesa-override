@@ -2,7 +2,7 @@ import "server-only";
 import { createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import type { Claim, HintGroupView, SessionView, SolvedTimes } from "@/lib/types";
 import { checkCode } from "./codes";
-import { caseFileUrl, eventEnd, eventOver, eventStart, roster, teamKey } from "./event";
+import { caseFileUrl, eventEnd, eventOver, eventStart, needsPartner, roster, teamKey } from "./event";
 import { bannerForRank, getGroupById, groupId, orderedCatalog, vaultLines } from "./hints";
 import { getStore } from "./store";
 
@@ -266,6 +266,7 @@ export async function startSession(
   if (team && !(attempted && (await codeMatches(team.code)))) {
     throw new HttpError(409, { error: "code_required" });
   }
+  if (team && needsPartner(team)) throw new HttpError(403, { error: "needs_partner" });
 
   const s: Session = {
     id: randomUUID(),
@@ -291,6 +292,28 @@ export async function startSession(
   }
   await store.incr(k.started);
   return s;
+}
+
+/**
+ * Pre-event check: confirm a registered team's name and code and show who is on it.
+ * Shares the resume-code attempt cap, so it can't be used to guess codes faster.
+ */
+export async function checkTeam(
+  callsignInput: unknown,
+  codeInput: unknown,
+): Promise<{ callsign: string; members: string[]; ready: boolean }> {
+  const cs = normalizeCallsign(callsignInput);
+  if (!cs) throw new HttpError(400, { error: "invalid_callsign" });
+  const teams = roster();
+  if (!teams) throw new HttpError(404, { error: "no_roster" });
+  const team = teams.get(teamKey(cs.display));
+  if (!team) throw new HttpError(403, { error: "not_registered" });
+  const store = getStore();
+  const attempts = await store.incrEx(k.resumeFails(cs.key), RESUME_FAIL_WINDOW_MS);
+  if (attempts > RESUME_MAX_FAILS) throw new HttpError(429, { error: "too_many_attempts" });
+  if (!resumeCodeMatches(codeInput, team.code)) throw new HttpError(401, { error: "wrong_code" });
+  await store.del(k.resumeFails(cs.key));
+  return { callsign: team.callsign, members: team.members ?? [], ready: !needsPartner(team) };
 }
 
 export async function revealHint(

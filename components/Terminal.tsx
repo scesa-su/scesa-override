@@ -103,7 +103,9 @@ export default function Terminal() {
         setError(
           code === "not_started"
             ? "THE CASE FILE IS NOT OPEN YET. WAIT FOR THE COUNTDOWN."
-            : code === "not_registered"
+            : code === "needs_partner"
+              ? "YOUR TEAM NEEDS A PARTNER. ALERT THE GROUP ADMINS WITH YOUR PARTNER'S NAME."
+              : code === "not_registered"
               ? "TEAM NOT REGISTERED. ENTER YOUR TEAM LEADER'S FIRST NAME ONLY."
               : "THE HUNT HAS ENDED. NO NEW TEAMS CAN START.",
         );
