@@ -103,7 +103,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ## Running an online event
 
-1. List the teams in a text file kept **outside** this repository, one per line: `Team Name | Leader Full Name | Partner Full Name`. Write `NEEDS A PARTNER` (or leave the partner out) for a team without one: it can use **VERIFY TEAM** but cannot start until a partner is added and the roster is redeployed.
+1. List the teams in a text file kept **outside** this repository, one per line: `Team Name | Leader Full Name | Partner Full Name`. Write `NEEDS A PARTNER` (or leave the partner out) for a team without one: it plays solo, and its claim form leaves Partner 2 blank.
 2. Run `npm run teams:make -- /path/to/team-names.txt /path/to/roster.json`. It prints each team's 6-digit access code and, on stdout, the `TEAMS` value. Re-running keeps existing codes.
 3. Set `TEAMS`, `EVENT_START`, `EVENT_END` and `CASE_FILE_URL` in Vercel, then redeploy.
 

@@ -219,17 +219,24 @@ describe("team verify and partner check", () => {
   it("shows members and clears a full pair before the start", async () => {
     expect(await team("judah", "333333")).toEqual({
       status: 200,
-      data: { callsign: "Judah", members: ["Judah Ayieko", "Dennis Muchai"], ready: true },
+      data: { callsign: "Judah", members: ["Judah Ayieko", "Dennis Muchai"], solo: false },
     });
   });
 
-  it("flags a team with no partner and refuses to start it", async () => {
-    expect((await team("Emma", "444444")).data).toEqual({ callsign: "Emma", members: ["Emma Ogwayo"], ready: false });
+  it("lets a solo team start and claim without a partner 2", async () => {
+    expect((await team("Emma", "444444")).data).toEqual({ callsign: "Emma", members: ["Emma Ogwayo"], solo: true });
     at(61 * MIN);
     const r = await start("Emma", { resumeCode: "444444" });
-    expect(r.res.status).toBe(403);
-    expect(r.data).toEqual({ error: "needs_partner" });
-    expect((await start("Judah", { resumeCode: "333333" })).res.status).toBe(200);
+    expect(r.res.status).toBe(200);
+    expect((await verify(r.cookie)).status).toBe(200);
+    const c = await claimPOST(
+      req("/api/claim", {
+        body: { partner1Name: "Emma Ogwayo", partner1Adm: "123456", partner2Name: " " },
+        cookie: r.cookie,
+      }),
+    );
+    expect(c.status).toBe(200);
+    expect((await c.json()).claim).toMatchObject({ partner2Name: "", partner2Adm: "" });
   });
 
   it("rejects wrong codes and unknown teams, and caps guesses", async () => {

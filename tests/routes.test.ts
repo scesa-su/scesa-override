@@ -330,7 +330,8 @@ describe("claim + leaderboard", () => {
     expect((await claim(cookie, { ...CLAIM, partner1Adm: "12 34" })).status).toBe(400);
     const empty = await claim(cookie, {});
     expect(empty.status).toBe(400);
-    expect((await empty.json()).fields).toEqual(["partner1Name", "partner1Adm", "partner2Name", "partner2Adm"]);
+    // Partner 2 is optional (solo teams), so only partner 1 is reported missing.
+    expect((await empty.json()).fields).toEqual(["partner1Name", "partner1Adm"]);
     const one = await claim(cookie, { ...CLAIM, partner2Adm: "bad adm!" });
     expect((await one.json()).fields).toEqual(["partner2Adm"]);
 

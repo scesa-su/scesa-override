@@ -23,8 +23,11 @@ function validate(f: Fields): (keyof Fields)[] {
   const bad: (keyof Fields)[] = [];
   if (!NAME_RE.test(f.partner1Name.trim())) bad.push("partner1Name");
   if (!ADM_RE.test(f.partner1Adm.trim())) bad.push("partner1Adm");
-  if (!NAME_RE.test(f.partner2Name.trim())) bad.push("partner2Name");
-  if (!ADM_RE.test(f.partner2Adm.trim())) bad.push("partner2Adm");
+  // Partner 2 is optional for solo teams, but must be complete if started.
+  if (f.partner2Name.trim() || f.partner2Adm.trim()) {
+    if (!NAME_RE.test(f.partner2Name.trim())) bad.push("partner2Name");
+    if (!ADM_RE.test(f.partner2Adm.trim())) bad.push("partner2Adm");
+  }
   return bad;
 }
 
@@ -71,7 +74,7 @@ function ClaimForm({ onClaimed, onSessionLost }: Omit<Props, "session">) {
     }
   };
 
-  const field = (key: keyof Fields, label: string, adm: boolean) => (
+  const field = (key: keyof Fields, label: string, adm: boolean, required = true) => (
     <label className="field">
       <span className={bad.includes(key) ? "err" : undefined}>
         {label}
@@ -80,7 +83,7 @@ function ClaimForm({ onClaimed, onSessionLost }: Omit<Props, "session">) {
       <input
         className="input"
         value={f[key]}
-        required
+        required={required}
         minLength={adm ? 3 : 2}
         maxLength={adm ? 20 : 60}
         pattern={adm ? "[A-Za-z0-9/\\-]{3,20}" : undefined}
@@ -105,16 +108,16 @@ function ClaimForm({ onClaimed, onSessionLost }: Omit<Props, "session">) {
           className="head dialog-title"
           text="CLAIM YOUR VICTORY // OFFICIAL REGISTRATION"
         />
-        <p className="muted-text">Input details for both team members to record your provisional standing:</p>
+        <p className="muted-text">Input details for each team member to record your provisional standing. Solo players leave Partner 2 blank:</p>
         <fieldset className="fieldset">
           <legend>PARTNER 1</legend>
           {field("partner1Name", "Full Name", false)}
           {field("partner1Adm", "Admission Number", true)}
         </fieldset>
         <fieldset className="fieldset">
-          <legend>PARTNER 2</legend>
-          {field("partner2Name", "Full Name", false)}
-          {field("partner2Adm", "Admission Number", true)}
+          <legend>PARTNER 2 (LEAVE BLANK IF SOLO)</legend>
+          {field("partner2Name", "Full Name", false, false)}
+          {field("partner2Adm", "Admission Number", true, false)}
         </fieldset>
         {error && (
           <p className="err" role="alert">
@@ -156,9 +159,7 @@ function Certificate({ claim, rank, banner }: { claim: Claim; rank: number | nul
           {claim.partner1Name} ({claim.partner1Adm})
         </dd>
         <dt>PARTNER 2</dt>
-        <dd>
-          {claim.partner2Name} ({claim.partner2Adm})
-        </dd>
+        <dd>{claim.partner2Name ? `${claim.partner2Name} (${claim.partner2Adm})` : "— (SOLO)"}</dd>
       </dl>
       <div role="status">
         <SplitTitle as="p" className="banner" text={banner} />

@@ -9,14 +9,14 @@ import path from "node:path";
  *   EVENT_END      ISO time after which codes and hints are refused and no new team can start.
  *   TEAMS          base64 JSON roster [{ "callsign": "…", "code": "123456", "members": ["…", "…"] }]
  *                  (or TEAMS_FILE, a path). When set, only registered call-signs can play and each needs
- *                  its team code. A team listing a single member must find a partner before it can start.
+ *                  its team code. A team listing a single member plays solo.
  *   CASE_FILE_URL  Link to the case-file download, shown to teams once they are in.
  */
 export interface Team {
   callsign: string;
   /** 6-digit access code; it doubles as the session's resume code. */
   code: string;
-  /** Leader then partner, full names. Omitted = not tracked; one name = still needs a partner. */
+  /** Leader then partner, full names. Omitted = not tracked; one name = solo. */
   members?: string[];
 }
 
@@ -98,7 +98,7 @@ function loadRoster(): Map<string, Team> | null {
   return null;
 }
 
-export function needsPartner(team: Team): boolean {
+export function isSolo(team: Team): boolean {
   return team.members !== undefined && team.members.length < 2;
 }
 

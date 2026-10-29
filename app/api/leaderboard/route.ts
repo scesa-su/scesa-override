@@ -23,7 +23,7 @@ function renderHtml(data: Awaited<ReturnType<typeof getLeaderboard>>): string {
       (e) => `<tr>
 <td>#${e.rank}</td><td>${esc(e.teamCallsign)}</td>
 <td>${esc(e.partner1Name)}<br><small>${esc(e.partner1Adm)}</small></td>
-<td>${esc(e.partner2Name)}<br><small>${esc(e.partner2Adm)}</small></td>
+<td>${e.partner2Name ? `${esc(e.partner2Name)}<br><small>${esc(e.partner2Adm)}</small>` : "<small>SOLO</small>"}</td>
 <td>${fmt(e.rawTime)}</td><td>+${fmt(e.penaltyTime)}</td><td><b>${fmt(e.totalScoreTime)}</b></td>
 <td>${esc(new Date(e.completedAt).toLocaleString("en-KE", { timeZone: "Africa/Nairobi" }))}</td>
 <td>${e.closeFinish.length ? `<span class="flag">⚑ ${esc(e.closeFinish.join(", "))}</span>` : ""}</td>

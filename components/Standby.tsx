@@ -32,7 +32,7 @@ export default function Standby({ busy, error, needResume, onStart, onCallsignCh
   const [callsign, setCallsign] = useState("");
   const [resumeCode, setResumeCode] = useState("");
   const [now, setNow] = useState(() => Date.now());
-  const [check, setCheck] = useState<{ members: string[]; ready: boolean } | string | null>(null);
+  const [check, setCheck] = useState<{ members: string[]; solo: boolean } | string | null>(null);
   const [checking, setChecking] = useState(false);
   const teamCodes = event?.teamCodes ?? false;
   const askCode = needResume || teamCodes;
@@ -173,12 +173,11 @@ export default function Standby({ busy, error, needResume, onStart, onCallsignCh
                 TEAM MEMBERS: <b>{check.members.join(" & ")}</b>
               </p>
             )}
-            {check.ready ? (
-              <p>✔ VERIFIED. YOUR TEAM IS CLEARED TO TAKE PART IN THE MYSTERY.</p>
-            ) : (
-              <p className="off">
-                YOUR TEAM NEEDS A PARTNER. YOU CAN&apos;T TAKE PART UNTIL YOU HAVE ONE. ALERT THE GROUP ADMINS
-                WITH YOUR NEW PARTNER&apos;S NAME.
+            <p>✔ VERIFIED. YOUR TEAM IS CLEARED TO TAKE PART IN THE MYSTERY.</p>
+            {check.solo && (
+              <p>
+                YOU&apos;RE PLAYING SOLO. IF YOU FIND A PARTNER BEFORE 2:00 PM, ALERT THE GROUP ADMINS WITH THEIR
+                NAME.
               </p>
             )}
           </div>

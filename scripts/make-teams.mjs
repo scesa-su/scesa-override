@@ -2,7 +2,7 @@
 // Usage: node scripts/make-teams.mjs <team-names.txt> <roster.json>
 //   team-names.txt  one team per line: "Team Name | Leader Full Name | Partner Full Name"
 //                   (team name max 32 characters; members optional). Leave the partner out, or write
-//                   "NEEDS A PARTNER", and that team can verify but not start until a partner is added.
+//                   "NEEDS A PARTNER", and that team plays solo.
 //   roster.json     written with a 6-digit access code per team; keep it OUTSIDE this repository.
 // Re-running keeps the codes of teams already in roster.json, so issued codes never change.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -42,7 +42,7 @@ const roster = lines.map(([callsign, ...rest]) => {
 writeFileSync(rosterFile, JSON.stringify(roster, null, 2) + "\n");
 console.error(`${roster.length} teams written to ${rosterFile}\n`);
 for (const t of roster) {
-  const who = t.members ? `  ${t.members.join(" & ")}${t.members.length < 2 ? "  (NEEDS A PARTNER)" : ""}` : "";
+  const who = t.members ? `  ${t.members.join(" & ")}${t.members.length < 2 ? "  (SOLO)" : ""}` : "";
   console.error(`${t.code}  ${t.callsign}${who}`);
 }
 console.error("\nTEAMS env var value (stdout):");

@@ -2,7 +2,7 @@ import "server-only";
 import { createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import type { Claim, HintGroupView, SessionView, SolvedTimes } from "@/lib/types";
 import { checkCode } from "./codes";
-import { caseFileUrl, eventEnd, eventOver, eventStart, needsPartner, roster, teamKey } from "./event";
+import { caseFileUrl, eventEnd, eventOver, eventStart, isSolo, roster, teamKey } from "./event";
 import { bannerForRank, getGroupById, groupId, orderedCatalog, vaultLines } from "./hints";
 import { getStore } from "./store";
 
@@ -266,7 +266,6 @@ export async function startSession(
   if (team && !(attempted && (await codeMatches(team.code)))) {
     throw new HttpError(409, { error: "code_required" });
   }
-  if (team && needsPartner(team)) throw new HttpError(403, { error: "needs_partner" });
 
   const s: Session = {
     id: randomUUID(),
@@ -301,7 +300,7 @@ export async function startSession(
 export async function checkTeam(
   callsignInput: unknown,
   codeInput: unknown,
-): Promise<{ callsign: string; members: string[]; ready: boolean }> {
+): Promise<{ callsign: string; members: string[]; solo: boolean }> {
   const cs = normalizeCallsign(callsignInput);
   if (!cs) throw new HttpError(400, { error: "invalid_callsign" });
   const teams = roster();
@@ -313,7 +312,7 @@ export async function checkTeam(
   if (attempts > RESUME_MAX_FAILS) throw new HttpError(429, { error: "too_many_attempts" });
   if (!resumeCodeMatches(codeInput, team.code)) throw new HttpError(401, { error: "wrong_code" });
   await store.del(k.resumeFails(cs.key));
-  return { callsign: team.callsign, members: team.members ?? [], ready: !needsPartner(team) };
+  return { callsign: team.callsign, members: team.members ?? [], solo: isSolo(team) };
 }
 
 export async function revealHint(
@@ -410,11 +409,14 @@ export async function submitClaim(
       if (existing) return { claim: existing, rank: await rankOf(s.id), created: false };
     }
     const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+    const blank = (v: unknown) => v === undefined || v === null || (typeof v === "string" && !v.trim());
+    // Solo teams leave partner 2 empty; a half-filled partner 2 is still an error.
+    const solo = blank(b.partner2Name) && blank(b.partner2Adm);
     const fields = {
       partner1Name: cleanName(b.partner1Name),
       partner1Adm: cleanAdm(b.partner1Adm),
-      partner2Name: cleanName(b.partner2Name),
-      partner2Adm: cleanAdm(b.partner2Adm),
+      partner2Name: solo ? "" : cleanName(b.partner2Name),
+      partner2Adm: solo ? "" : cleanAdm(b.partner2Adm),
     };
     const invalid = Object.entries(fields)
       .filter(([, v]) => v === null)
@@ -425,8 +427,8 @@ export async function submitClaim(
       teamCallsign: s.callsign,
       partner1Name: fields.partner1Name!,
       partner1Adm: fields.partner1Adm!,
-      partner2Name: fields.partner2Name!,
-      partner2Adm: fields.partner2Adm!,
+      partner2Name: fields.partner2Name ?? "",
+      partner2Adm: fields.partner2Adm ?? "",
       rawTime: s.solved.rawTime,
       penaltyTime: s.solved.penaltyTime,
       totalScoreTime: s.solved.totalScoreTime,
